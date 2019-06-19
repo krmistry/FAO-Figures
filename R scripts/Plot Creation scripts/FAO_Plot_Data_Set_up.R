@@ -9,6 +9,8 @@
 library(plyr)
 library(dplyr)
 library(stringr)
+library(here)
+library(readxl)
 
 
 # ***** Notes on naming convention:
@@ -29,30 +31,36 @@ library(stringr)
 ######################### RAM Data sets ##########################################
 ##################################################################################
 
-# File with majority of data for all stocks:
-timeseries_values_views <- read.csv(here::here("Data/RAM Files (v4.44)/views tables/timeseries_values_views.csv"))
+load(here::here("Data/RAM v4.44 DB Files With Model Fit Data (1-29-19)/DBdata.RData"))
+
+# File with majority of data for all stocks is timeseries_values_views (loaded from 
+# above .RData)
 
 # File that contains stockid mapped to region and scientificname:
-stock_info <- read.csv(here::here("Data/RAM Files (v4.44)/ram tables/stock.csv"))
+stock_info <- read.csv(here::here("Data/updated_stock (6-14-19).csv"))
 
-# File that contains taxGroup (and FisheryType) mapped to scientificname:
-taxonomy <- read.csv(here::here("Data/RAM Files (v4.44)/ram tables/taxonomy.csv"))
+# FAO codes
+FAO_codes <- read.csv(here::here("Data/updated_stock (6-14-19) FAO codes.csv"))
 
-# On windows computers, the first column names in the imported dataframes stock.csv 
-# and taxonomy.csv had extra characters added, so correcting for that:
-colnames(stock_info)[1] <- "stockid"
-colnames(taxonomy)[1] <- "tsn"
 
-# Adding region, scientificname, FisheryType and taxGroup variables to 
-# timeseries_values_views dataframe:
+# Adding region and primary_FAOname variables to timeseries_values_views dataframe:
 timeseries_values_views$region <-
   stock_info$region[match(timeseries_values_views$stockid, stock_info$stockid)]
+timeseries_values_views$primary_FAOname <-
+  stock_info$primary_FAOname[match(timeseries_values_views$stockid, stock_info$stockid)]
+
+# Adding scientificname in order to match in taxGroup and FisheryType from taxonomy 
+# dataframe, also loaded during .RData import above:
 timeseries_values_views$scientificname <-
   stock_info$scientificname[match(timeseries_values_views$stockid, stock_info$stockid)]
+
+# Matching in taxGroup and FisheryType from taxonomy dataframe:
 timeseries_values_views$FisheryType <-
   taxonomy$FisheryType[match(timeseries_values_views$scientificname, taxonomy$scientificname)]
 timeseries_values_views$taxGroup <-
   taxonomy$taxGroup[match(timeseries_values_views$scientificname, taxonomy$scientificname)]
+
+
 
 # Change some region values to make them match plots from state space model 
 # output:
@@ -61,8 +69,6 @@ timeseries_values_views$region <- timeseries_values_views$region %>%
   sub("Europe non EU", "Norway, Iceland, Faroe Islands", .) %>%
   sub("European Union", "European Union (non Mediterranean)", .)
 
-# Capitalize taxGroup values (makes things easier in terms of matching the legend)
-timeseries_values_views$taxGroup <- str_to_title(timeseries_values_views$taxGroup)
 
 # Extracting the stocks that have data in the TBbest column into a new 
 # dataframe:
@@ -76,8 +82,8 @@ All_TBbest.df <- subset(timeseries_values_views,
 
 # if there are NAs in either region or taxGroup, stop operation
 if (any(is.na(timeseries_values_views$region) == TRUE) | 
-    any(is.na(timeseries_values_views$taxGroup) == TRUE)) { 
-  stop(paste("timeseries_values_views has NAs in region and/or taxGroup column"))
+    any(is.na(timeseries_values_views$primary_FAOname) == TRUE)) { 
+  stop(paste("timeseries_values_views has NAs in region and/or primary_FAOname column"))
 }
 
 # Region lists:
