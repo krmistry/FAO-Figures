@@ -1,6 +1,6 @@
-### RAM Legacy Stock Assessment Database - Plot Creation Functions ##########
+### FAO Report - Plot Creation Functions ##########
 ## Created by Kelly Mistry, kelly.r.mistry@gmail.com
-## Last revised: 5/31/2019
+## Last revised: 6/19/2019
 
 library(scales)
 
