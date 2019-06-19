@@ -1,6 +1,6 @@
-### RAM Legacy Stocks - Regional & Taxonomy Group Summary Plots ##########
+### FAO Report Plots ##########
 ## Created by Kelly Mistry, kelly.r.mistry@gmail.com
-## Last revised: 5/31/2019
+## Last revised: 6/19/2019
 
 library(plyr)
 library(dplyr)
@@ -51,90 +51,16 @@ ptm <- proc.time()
 ########## All Directories (source and to save plots to) #####################
 #------- CHANGE AS NEEDED to match local directories before running code------
 
-# Directory with the RAM Files v4.44 folder in it 
-# source_directory <- here()
-# data_directory <- here("Data/RAM Files (v4.44)/")
-
-# String that combined with source_directory points towards correct directories 
-# to save region and taxGroup plots to:
-by_region <- here("Results", "Region/")
-by_taxGroup <- here("Results", "taxGroup/")
-
 # String with folder name for each type of plot, to combine with source directory 
 # and either by_region or by_taxGroup:
-biomass_coverage_by_stock_folder <- "Plots/Biomass Coverage by Stock/"
-biomass_coverage_all_stocks_folder <- "Plots/Biomass Coverage All Stocks/"
-surplus_top_4_folder <- "Plots/Surplus Production - Top 4 Stocks/"
-surplus_v_biomass_top_4_folder <- "Plots/Surplus v Biomass - Top 4 Stocks/"
-summary_pdf_of_plots_folder <- "Summary PDF of Plots/"
-summary_table_folder <- "Summary Tables/"
+BdivBmsy_prop_folder <- "Figures/BdivBmsy Proportion of Stocks"
 
-# Example of the full string for one of the directories:
-# "~/Desktop/Raw Data/Hilborn Lab/Assessment Data Plots/Plots by Region/Biomass Coverage by Stock/
-
-#------ All directories to save to, each named with strings defined above ---
-# ******* DO NOT CHANGE - make changes in strings above, if needed ************
-#-------------------------------------------------------------------------
-
-# Directory to save region biomass coverage by stock plots to:
-region_biomass_coverage_by_stock_directory <- paste(by_region,
-                                                    biomass_coverage_by_stock_folder,
-                                                    sep = "")
-
-# Directory to save region biomass coverage for ALL stocks plots to:
-region_biomass_coverage_all_stocks_directory <- paste(by_region,
-                                                      biomass_coverage_all_stocks_folder,
-                                                      sep = "")
-
-# Directory to save taxGroup biomass coverage by stock plots to:
-taxGroup_biomass_coverage_by_stock_directory <- paste(by_taxGroup,
-                                                      biomass_coverage_by_stock_folder,
-                                                      sep = "")
-  
-# Directory to save taxGroup biomass coverage for ALL stocks plots to:
-taxGroup_biomass_coverage_all_stocks_directory <- paste(by_taxGroup,
-                                                        biomass_coverage_all_stocks_folder,
-                                                        sep = "")
-
-# Directory to save region surplus production for top 4 stocks plots to:
-region_surplus_top_4_directory <- paste(by_region,
-                                        surplus_top_4_folder,
-                                        sep = "")
-
-# Directory to save taxGroup surplus production for top 4 stocks plots to:
-taxGroup_surplus_top_4_directory <- paste(by_taxGroup,
-                                          surplus_top_4_folder,
-                                          sep = "")
-
-# Directory to save region surplus production vs. biomass for top 4 stocks plots to:
-region_surplus_v_biomass_top_4_directory <- paste(by_region,
-                                                  surplus_v_biomass_top_4_folder,
-                                                  sep = "")
-
-# Directory to save taxGroup surplus production vs. biomass for top 4 stocks plots to:
-taxGroup_surplus_v_biomass_top_4_directory <- paste(by_taxGroup,
-                                                    surplus_v_biomass_top_4_folder,
-                                                    sep = "")
-
-# Directory to save summary pdfs with all region plots to:
-region_summary_PDF_directory <- paste(by_region,
-                                      summary_pdf_of_plots_folder,
-                                      sep = "")
-
-# Directory to save summary pdfs with all taxGroup plots to:
-taxGroup_summary_PDF_directory <- paste(by_taxGroup,
-                                        summary_pdf_of_plots_folder,
-                                        sep = "")
-
-# Directory to save summary table CSVs used at top of page for each region:
-region_summary_table_directory <- paste(by_region,
-                                        summary_table_folder,
-                                        sep = "")
-
-# Directory to save summary table CSVs used at top of page for each taxGroup:
-taxGroup_summary_table_directory <- paste(by_taxGroup,
-                                        summary_table_folder,
-                                        sep = "")
+biomass_coverage_by_stock_folder <- "Figures/Biomass Coverage by Stock/"
+biomass_coverage_all_stocks_folder <- "Figures/Biomass Coverage All Stocks/"
+surplus_top_4_folder <- "Figures/Surplus Production - Top 4 Stocks/"
+surplus_v_biomass_top_4_folder <- "Figures/Surplus v Biomass - Top 4 Stocks/"
+# summary_pdf_of_plots_folder <- "Summary PDF of Plots/"
+# summary_table_folder <- "Summary Tables/"
 
 ###############################################################################
 ########## Initial Set Up ####################################################
@@ -270,6 +196,27 @@ if (length(setdiff(timeseries_values_views$stockid, stock_info$stockid)) != 0 |
   stop(paste("Either stockid or scientificname has discrepancies between 
              timeseries_values_views and stock_info or between stock_info and taxonomy"))
 }
+
+
+###############################################################################
+########## Biomass divided by Biomass at MSY (BdivBmsy) #######################
+#
+# BdivBmsy < 0.8 (red), between 0.8-1.2 (yellow), and >1.2 (green)
+# instead of solid colors for each of 3 bands, scale them so they range from full 
+# saturation for years of 100% coverage of B/BMSY estimates, and no saturation (white) 
+# for years of 0% coverage. Could be done by using alpha parameter of rgb() that 
+# depends on fraction of stocks covered in any given year, but there could be other 
+# ways as well. 
+# - x-axis = “Year”, y-axis = “Proportion of stocks in B/BMSY category”, plot title = FAOname
+# - legend 1 = “Stock status:”, with categories B/BMSY < 0.8, 0.8 < B/BMSY < 1.2, 1.2 < B/BMSY
+# - legend 2 = “Coverage:”, with 3 horizontal bands ranging from white to full saturation 
+# (R/Y/G), and under or over the 3 bands, a few markers such as “0%, 25%, 50%... 100%”. 
+# See the 3-panel state-space model plots that you’ve put on the website by region or 
+# taxgroup as an example, now there would be 3 bands instead of 1
+
+# Data needed: 
+# - number of stocks in each year in each FAO area - use existing function
+# - B/Bmsy divided into 3 categories; <0.8, 0.8 - 1.2, >1.2 - write from scratch
 
 
 

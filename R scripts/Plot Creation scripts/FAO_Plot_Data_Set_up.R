@@ -1,5 +1,5 @@
 ## Created by Kelly Mistry, kelly.r.mistry@gmail.com
-## Last revised: 5/31/2019
+## Last revised: 6/19/2019
 
 # This script is designed to be run as part of
 # Region_or_taxGroup_Plots_Code-KM.R and it produces the transformed and
@@ -36,6 +36,12 @@ load(here::here("Data/RAM v4.44 DB Files With Model Fit Data (1-29-19)/DBdata.RD
 # File with majority of data for all stocks is timeseries_values_views (loaded from 
 # above .RData)
 
+#**************** Temporary fix because the static timeseries_values_views df has 2 
+#     stockids that are wrong - TAKE OUT ONCE THIS IS FIXED ************************
+timeseries_values_views$stockid[timeseries_values_views$stockid == "CODIabdce"] <- "COD1abdce"
+timeseries_values_views$stockid[timeseries_values_views$stockid == "CODIf-XIV"] <- "COD1f-XIV"
+#**********************************************************************************
+
 # File that contains stockid mapped to region and scientificname:
 stock_info <- read.csv(here::here("Data/updated_stock (6-14-19).csv"))
 
@@ -61,7 +67,6 @@ timeseries_values_views$taxGroup <-
   taxonomy$taxGroup[match(timeseries_values_views$scientificname, taxonomy$scientificname)]
 
 
-
 # Change some region values to make them match plots from state space model 
 # output:
 timeseries_values_views$region <- timeseries_values_views$region %>%
@@ -69,6 +74,8 @@ timeseries_values_views$region <- timeseries_values_views$region %>%
   sub("Europe non EU", "Norway, Iceland, Faroe Islands", .) %>%
   sub("European Union", "European Union (non Mediterranean)", .)
 
+# Capitalize taxGroup values (makes things easier in terms of matching the legend)
+timeseries_values_views$taxGroup <- str_to_title(timeseries_values_views$taxGroup)
 
 # Extracting the stocks that have data in the TBbest column into a new 
 # dataframe:
@@ -76,15 +83,26 @@ timeseries_values_views$region <- timeseries_values_views$region %>%
 All_TBbest.df <- subset(timeseries_values_views, 
                         is.na(timeseries_values_views$TBbest) == FALSE)
 
+
+# Extracting rows that have values (not NA) in the timeseries_values_views dataframe:
+All_BdivBmsy.df <- subset(timeseries_values_views,
+                          is.na(timeseries_values_views$BdivBmsypref) == FALSE)
+
 ##################################################################################
 ######### Parameters for All Data Transformations & Segmentations ################
 #################################################################################
 
 # if there are NAs in either region or taxGroup, stop operation
-if (any(is.na(timeseries_values_views$region) == TRUE) | 
-    any(is.na(timeseries_values_views$primary_FAOname) == TRUE)) { 
-  stop(paste("timeseries_values_views has NAs in region and/or primary_FAOname column"))
-}
+# if (any(is.na(timeseries_values_views$region) == TRUE) | 
+#     any(is.na(timeseries_values_views$primary_FAOname) == TRUE)) { 
+#   stop(paste("timeseries_values_views has NAs in region and/or primary_FAOname column"))
+# }
+
+# FAO area lists:
+all_FAO_areas <- unique(timeseries_values_views$primary_FAOname)
+BdivBmsy_FAO_areas <- unique(All_BdivBmsy.df$primary_FAOname)
+number_FAO_areas <- length(all_FAO_areas)
+number_BdivBmsy_FAO_areas <- length(BdivBmsy_FAO_areas)
 
 # Region lists:
 regions <- unique(timeseries_values_views$region)
@@ -123,18 +141,14 @@ stock_count_years <- seq(year_min, year_max, by = 5)
 stock_ids <- unique(timeseries_values_views$stockid)
 number_stocks <- length(stock_ids)
 
-# Separate out timeseries_values_views and All_TBbest.df data into lists of 
-# dataframes, one list separated by regions (excluding the salmon regions), the 
-# other by taxGroup 
-seg_timeseries_values_views <- timeseries_values_views[timeseries_values_views$region %in% regions, ]
-timeseries_values_views_region_list <- split(seg_timeseries_values_views, 
-                                     seg_timeseries_values_views$region)
-timeseries_values_views_taxGroup_list <- split(timeseries_values_views,
-                                                   timeseries_values_views$taxGroup)
-
-seg_All_TBbest.df <- All_TBbest.df[All_TBbest.df$region %in% regions, ]
-All_TBbest.df_region_list <- split(seg_All_TBbest.df, seg_All_TBbest.df$region)
-All_TBbest.df_taxGroup_list <- split(All_TBbest.df, All_TBbest.df$taxGroup)
+# Separate out timeseries_values_views, All_TBbest.df and All_BdivBmsy.df data into 
+# lists of dataframes separated by FAO areas 
+timeseries_values_views_FAO_list <- split(timeseries_values_views, 
+                                     timeseries_values_views$primary_FAOname)
+All_TBbest.df_FAO_list <- split(All_TBbest.df, 
+                                All_TBbest.df$primary_FAOname)
+All_BdivBmsy.df_FAO_list <- split(All_BdivBmsy.df, 
+                                     All_BdivBmsy.df$primary_FAOname)
 
 ################################################################################
 ########################### Summary Dataframes  ################################
