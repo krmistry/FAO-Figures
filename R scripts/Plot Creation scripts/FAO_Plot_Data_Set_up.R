@@ -261,6 +261,57 @@ for (i in 1:number_BdivBmsy_FAO_areas) {
   }
 }
 
+for (j in 1:number_BdivBmsy_FAO_areas) {
+  for (i in 1:nrow(BdivBmsy_prop_df_list[[j]])) {
+    BdivBmsy_prop_df_list[[j]]$prop_of_stocks[i] <- BdivBmsy_prop_df_list[[j]]$number_stocks[i]/max(BdivBmsy_prop_df_list[[j]]$number_stocks)
+  }
+}
+
+gather_test <- gather(BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -2], 
+                      key = stock_status, 
+                      value = prop_of_statuses, 
+                      prop_stocks_0.8:prop_stocks_1.2)
+gather_test$stock_status <- factor(gather_test$stock_status, 
+                                   levels = rev(c("prop_stocks_0.8",
+                                              "prop_0.8_stocks_1.2",
+                                              "prop_stocks_1.2")))
+gather_colors <- c("green", "yellow", "red")
+names(gather_colors) <- levels(gather_test$stock_status)
+
+gather_test2 <- gather_test[order(gather_test$year),]
+
+p <- ggplot(data = gather_test,
+       aes(x = year, y = prop_of_statuses))
+
+p +  geom_bar(aes(fill = stock_status), position = "stack", stat = "identity") +
+  #scale_y_continuous(labels = scales::percent) +
+  # scale_fill_gradient(name = "Coverage",
+  #                     breaks = c(0, 0.25, 0.5, 0.75, 1),
+  #                     limits = c(0, 1),
+  #                     low = "springgreen",
+  #                     high = "springgreen4") +
+  
+  scale_fill_manual(name = "Stock status:",
+                    values = gather_colors) +
+  theme_light()
+
+p_layer_1 <- p + layer(mapping = aes(fill = stock_status), geom = "bar", stat = "identity",
+          position = "stack") +
+  scale_fill_manual(name = "Stock status:",
+                    values = gather_colors) +
+  theme_light()
+
+p + layer(mapping = aes(fill = prop_of_stocks, group = prop_of_stocks), data = gather_test2, geom = "area", stat = "identity",
+          position = "stack") +
+  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
+  theme_light()
+
+ggplot(data = gather_test2) +
+  geom_area(aes(x = year, y = prop_of_statuses, 
+                fill = prop_of_stocks, group = prop_of_stocks))
+
+
+
 
 test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
 test <- test[test$year >= 1950, ]
@@ -274,18 +325,41 @@ for (i in 1:year_range) {
 }
 
 for (i in 1:nrow(test2)) {
-    test2$BdivBmsy_prop[i] <- (test2$BdivBmsypref[i]/BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], 2])
+  # print(BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], ])
+  # print(test2$BdivBmsypref[i])
+  test2$BdivBmsy_prop[i] <- test2$BdivBmsypref[i]/BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], 2]
 }
+
+my_fun = function(vec){ 
+  as.numeric(vec[3]) / sum(test2$BdivBmsypref[test2$year == vec[2]]) 
+}
+
+test2$prop = apply(test2, 1, my_fun)
 
 for (i in 1:year_range) {
-  
+  print(sum(test2$prop[test2$year == years[i]]))
 }
 
-
+test2$BdivBmsy_category <- factor(test2$BdivBmsy_category, 
+                                  levels = c("B/BMSY < 0.8", 
+                                             "0.8 < B/BMSY < 1.2",
+                                             "B/BMSY > 1.2"))
+my_colors <- c("red", "yellow", "green")
+names(my_colors) <- levels(test2$BdivBmsy_category)
 
 ggplot(data = test2,
-       aes(x = year, y = BdivBmsy_prop, fill = BdivBmsy_category)) +
-  geom_area()
+       aes(x = year, y = prop, fill = prop)) +
+  geom_bar(position = "stack", stat = "identity") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_gradient(name = "Coverage",
+                      breaks = c(0, 0.25, 0.5, 0.75, 1),
+                      limits = c(0, 1),
+                      low = "springgreen",
+                      high = "springgreen4") +
+  
+  # scale_fill_manual(name = "Stock status:", 
+  #                   values = my_colors) +
+  theme_light()
 
 ################################################################################
 ########## Dataframes with Mean Biomass (Used for Biomass Coverage plots) ######
