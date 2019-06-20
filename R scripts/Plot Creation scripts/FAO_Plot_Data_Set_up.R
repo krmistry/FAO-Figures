@@ -266,18 +266,25 @@ test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
 test <- test[test$year >= 1950, ]
 test2 <- test[, c(3, 1, 2)]
  
-BdivBmsy_sums_per_year <- vector()
+BdivBmsy_sums_per_year <- as.data.frame(matrix(NA, nrow = year_range, ncol = 2))
+colnames(BdivBmsy_sums_per_year) <- c("year", "BdivBmsy_sum")
+BdivBmsy_sums_per_year[, 1] <- years
 for (i in 1:year_range) {
-  BdivBmsy_sums_per_year[i] <- sum(test2$BdivBmsypref[test2$year == years[i]])
+  BdivBmsy_sums_per_year[i, 2] <- sum(test2$BdivBmsypref[test2$year == years[i]])
+}
+
+for (i in 1:nrow(test2)) {
+    test2$BdivBmsy_prop[i] <- (test2$BdivBmsypref[i]/BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], 2])
+}
+
+for (i in 1:year_range) {
+  
 }
 
 
 
-
-
-
 ggplot(data = test2,
-       aes(x = year, y = prop, fill = BdivBmsy_category)) +
+       aes(x = year, y = BdivBmsy_prop, fill = BdivBmsy_category)) +
   geom_area()
 
 ################################################################################
