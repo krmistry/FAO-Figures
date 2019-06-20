@@ -88,6 +88,25 @@ All_TBbest.df <- subset(timeseries_values_views,
 All_BdivBmsy.df <- subset(timeseries_values_views,
                           is.na(timeseries_values_views$BdivBmsypref) == FALSE)
 
+# Adding column with B/Bmsy categories for B/Bmsy plot:
+BdivBmsy_categories <- c("B/BMSY < 0.8", 
+                         "0.8 < B/BMSY < 1.2", 
+                         "B/BMSY > 1.2")
+
+for (i in 1:nrow(All_BdivBmsy.df)) {
+  if (All_BdivBmsy.df$BdivBmsypref[i] < 0.8) {
+    All_BdivBmsy.df$BdivBmsy_category[i] <- BdivBmsy_categories[1]
+  } 
+  if (All_BdivBmsy.df$BdivBmsypref[i] >= 0.8 & All_BdivBmsy.df$BdivBmsypref[i] < 1.2) {
+    All_BdivBmsy.df$BdivBmsy_category[i] <- BdivBmsy_categories[2]
+  } 
+  if (All_BdivBmsy.df$BdivBmsypref[i] >= 1.2) {
+    All_BdivBmsy.df$BdivBmsy_category[i] <- BdivBmsy_categories[3]
+  }
+}
+
+any(is.na(All_BdivBmsy.df$BdivBmsy_category))
+
 ##################################################################################
 ######### Parameters for All Data Transformations & Segmentations ################
 #################################################################################
@@ -131,7 +150,7 @@ TB_taxGroup_labels <- gsub(" |-", "_", TB_taxGroup_list)
 ##### use TB_taxGroup_list for matching with All_TBbest.df$taxGroup ###########
 
 # year range:
-#year_min <- 1950 - this is defined in Region_or_taxGroup_Plots_Code-KM.R
+year_min <- 1950 # this is defined in Region_or_taxGroup_Plots_Code-KM.R
 year_max <- max(timeseries_values_views$year) - 1 # there were no TBbest numbers for 2017, the max year
 year_range <- year_max - year_min + 1
 years <- c(year_min:year_max)
@@ -141,6 +160,12 @@ stock_count_years <- seq(year_min, year_max, by = 5)
 stock_ids <- unique(timeseries_values_views$stockid)
 number_stocks <- length(stock_ids)
 
+
+All_BdivBmsy.df$primary_FAOname <- factor(All_BdivBmsy.df$primary_FAOname, 
+                                          levels = unique(All_BdivBmsy.df$primary_FAOname))
+
+All_TBbest.df$primary_FAOname <- factor(All_TBbest.df$primary_FAOname, 
+                                          levels = unique(All_TBbest.df$primary_FAOname))
 # Separate out timeseries_values_views, All_TBbest.df and All_BdivBmsy.df data into 
 # lists of dataframes separated by FAO areas 
 timeseries_values_views_FAO_list <- split(timeseries_values_views, 
@@ -150,35 +175,31 @@ All_TBbest.df_FAO_list <- split(All_TBbest.df,
 All_BdivBmsy.df_FAO_list <- split(All_BdivBmsy.df, 
                                      All_BdivBmsy.df$primary_FAOname)
 
+
+
 ################################################################################
 ########################### Summary Dataframes  ################################
 ################################################################################
 
 # Number of stocks, taxonomy groups and first & last year with data in each 
 # region, used to produce summary tables at top of region pages:
-stock_tax_per_region <- summary_fun(type_of_plot = "region", 
-                                    input_data = timeseries_values_views_region_list, 
-                                    number_taxGroup_or_region = number_regions, 
-                                    row_names = regions_plot_titles)
+# stock_tax_per_FAO_area <- summary_fun(type_of_plot = "region", 
+#                                     input_data = timeseries_values_views_region_list, 
+#                                     number_taxGroup_or_region = number_FAO_areas, 
+#                                     row_names = all_FAO_areas)
 
-# Number of stocks, regions and first & last year with data in each taxonomy 
-# group, used to produce summary tables at top of taxonomy group pages:
-stock_region_per_taxgroup <- summary_fun(type_of_plot = "taxGroup", 
-                                         input_data = timeseries_values_views_taxGroup_list, 
-                                         number_taxGroup_or_region = number_taxGroups, 
-                                         row_names = taxGroup_labels)
+
+# Version of the above with the All_BdivBmsy.df; this will tell what to expect 
+# in the biomass coverage plots
+BdivBmsy_stock_tax_per_FAO_area <- summary_fun(input_data = All_BdivBmsy.df_FAO_list, 
+                                               number_of_variables = number_BdivBmsy_FAO_areas, 
+                                               row_names = BdivBmsy_FAO_areas)
 
 # Version of the above with the All_TBbest.df; this will tell what to expect 
 # in the biomass coverage plots
-TB_stock_tax_per_region <- summary_fun(type_of_plot = "region", 
-                                         input_data = All_TBbest.df_region_list, 
-                                         number_taxGroup_or_region = number_regions, 
-                                         row_names = regions_plot_titles)
-
-TB_stock_region_per_taxgroup <- summary_fun(type_of_plot = "taxGroup", 
-                                            input_data = All_TBbest.df_taxGroup_list, 
-                                            number_taxGroup_or_region = number_TB_taxGroups, 
-                                            row_names = TB_taxGroup_plot_titles)
+TB_stock_tax_per_FAO_area <- summary_fun(input_data = All_TBbest.df_FAO_list, 
+                                         number_of_variables = length(unique(All_TBbest.df$primary_FAOname)), 
+                                         row_names = unique(All_TBbest.df$primary_FAOname))
 
 
 ################################################################################
@@ -207,6 +228,57 @@ taxGroup_myColors <- c("yellow2", "violetred1", "turquoise3", "tomato3",
                        "darkseagreen3", "darksalmon")
 names(taxGroup_myColors) <- regions
 
+
+
+################################################################################
+############  BdivBmsy & Number of Stocks across Timeseries ####################
+################################################################################
+
+BdivBmsy_prop_df_list <- vector("list", length = number_BdivBmsy_FAO_areas)
+names(BdivBmsy_prop_df_list) <- BdivBmsy_FAO_areas
+
+for (i in 1:number_BdivBmsy_FAO_areas) {
+  BdivBmsy_prop_df_list[[i]] <- as.data.frame(matrix(NA, nrow = year_range,
+                                                     ncol = 5))
+  colnames(BdivBmsy_prop_df_list[[i]]) <- c("year", 
+                                            "number_stocks",
+                                            "prop_stocks_0.8",
+                                            "prop_0.8_stocks_1.2",
+                                            "prop_stocks_1.2")
+  #rownames(BdivBmsy_prop_df_list[[i]]) <- years
+  for (j in 1:year_range) {
+    x <- subset(All_BdivBmsy.df_FAO_list[[i]], 
+                All_BdivBmsy.df_FAO_list[[i]]$year == j + 1949)
+    BdivBmsy_prop_df_list[[i]][j, 1] <- years[j]
+    BdivBmsy_prop_df_list[[i]][j, 2] <- count_unique_elements(x,
+                                                              "stockid")
+    BdivBmsy_prop_df_list[[i]][j, 3] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[1]))/BdivBmsy_prop_df_list[[i]][j, 2]
+    BdivBmsy_prop_df_list[[i]][j, 4] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[2]))/BdivBmsy_prop_df_list[[i]][j, 2]
+    BdivBmsy_prop_df_list[[i]][j, 5] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[3]))/BdivBmsy_prop_df_list[[i]][j, 2]
+  }
+}
+
+
+test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
+test <- test[test$year >= 1950, ]
+test2 <- test[, c(3, 1, 2)]
+ 
+BdivBmsy_sums_per_year <- vector()
+for (i in 1:year_range) {
+  BdivBmsy_sums_per_year[i] <- sum(test2$BdivBmsypref[test2$year == years[i]])
+}
+
+
+
+
+
+
+ggplot(data = test2,
+       aes(x = year, y = prop, fill = BdivBmsy_category)) +
+  geom_area()
 
 ################################################################################
 ########## Dataframes with Mean Biomass (Used for Biomass Coverage plots) ######
