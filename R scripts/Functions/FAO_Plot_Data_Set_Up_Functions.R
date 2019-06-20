@@ -9,6 +9,7 @@ count_unique_elements <- function(data, column_name) {
   length(unique(data[, column_number]))
 }
 
+
 #--------------------------------------------------------------------------------
 # Function to find the minimum number in a column of a dataframe
 find_column_min <- function(data, column_name) {
@@ -37,40 +38,29 @@ find_column_max <- function(data, column_name) {
 #     TB_taxGroup_list)
 #--- row_names will be either region_plot_titles or TB_taxGroup_plot_titles
 
-summary_fun <- function(type_of_plot = c("region", "taxGroup"),
-                          input_data,
-                          number_taxGroup_or_region, 
-                          row_names) {
+summary_fun <- function(input_data,
+                        number_of_variables, 
+                        row_names) {
+  
   dest_dataframe <- data.frame(matrix(NA, 
-                                      nrow = number_taxGroup_or_region, 
-                                      ncol = 4))
+                                      nrow = number_of_variables, 
+                                      ncol = 3))
   rownames(dest_dataframe) <- sort(row_names)
-  if (type_of_plot == "region") {
-    colnames(dest_dataframe) <- c("Num_Stocks", 
-                                  "Num_taxGroup", 
-                                  "First_year", 
-                                  "Last_year")
-    dest_dataframe[, 2] <- unlist(lapply(input_data, 
-                                         count_unique_elements, 
-                                         column_name = "taxGroup"))
-  } else {
-    colnames(dest_dataframe) <- c("Num_Stocks", 
-                                  "Num_Region", 
-                                  "First_year", 
-                                  "Last_year")
-    dest_dataframe[, 2] <- unlist(lapply(input_data, 
-                                         count_unique_elements, 
-                                         column_name = "region"))
-  }
+  
+  colnames(dest_dataframe) <- c("Num_Stocks", 
+                                "First_year", 
+                                "Last_year")
   dest_dataframe[, 1] <- unlist(lapply(input_data, 
-                                count_unique_elements, 
-                                column_name = "stockid"))
+                                       count_unique_elements, 
+                                       column_name = "stockid"))
+  dest_dataframe[, 2] <- unlist(lapply(input_data, 
+                                       find_column_min, column_name = "year"))
   dest_dataframe[, 3] <- unlist(lapply(input_data, 
-                                find_column_min, column_name = "year"))
-  dest_dataframe[, 4] <- unlist(lapply(input_data, 
-                                find_column_max, column_name = "year"))
+                                       find_column_max, column_name = "year"))
   return(dest_dataframe)
 }
+
+
 
 #--------------------------------------------------------------------------------
 # Function to populate mean_biomass function with stock values (mean biomass, first
