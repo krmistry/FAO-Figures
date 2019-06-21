@@ -12,6 +12,8 @@ library(stringr)
 library(here)
 library(readxl)
 library(ggnewscale)
+library(tidyr)
+library(ggplot2)
 
 
 # ***** Notes on naming convention:
@@ -269,9 +271,9 @@ for (j in 1:number_BdivBmsy_FAO_areas) {
 }
 
 gather_test <- gather(BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -2], 
-                      key = y, 
-                      value = x, 
-                      prop_stocks_0.8:prop_of_stocks)
+                      key = stock_status, 
+                      value = prop_of_statuses, 
+                      prop_stocks_0.8:prop_stocks_1.2)
 gather_test$stock_status <- factor(gather_test$stock_status, 
                                    levels = rev(c("prop_stocks_0.8",
                                               "prop_0.8_stocks_1.2",
@@ -310,14 +312,37 @@ p + layer(mapping = aes(fill = prop_of_stocks, group = prop_of_stocks), data = g
 
 gather_test2$y_axis <- 1
 
+p_layer_2 <- p +
+  #new_scale("fill") +
+  geom_area(data = gather_test2, aes(x = year, y = y_axis,
+                fill = prop_of_stocks, group = prop_of_stocks)) +
+  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
+  theme_light() 
+  # scale_x_continuous(breaks = seq(1950,2020, by = 10),
+  #                    labels = seq(1950,2020, by = 10))
+
+p_layer_2 + 
+  new_scale("fill") +
+  # new_scale("x") +
+  geom_bar(data = gather_test, aes(fill = stock_status), position = "stack", stat = "identity", 
+           alpha = 0.5) +
+  scale_fill_manual(name = "Stock status:",
+                    values = gather_colors) 
+  # scale_x_continuous(breaks = seq(1950,2020, by = 10),
+  #                    labels = seq(1950,2020, by = 10))
+
+# Trying adding coverage as a line plot rather than a color gradient:
+p_layer_1 +
+  geom_line(aes(y = prop_of_stocks))
+
+# with stock status as the base layer, and coverage on a color gradient
+
 p_layer_1 +
   new_scale("fill") +
-  geom_area(data = gather_test2, aes(x = year, y = y_axis,
-                fill = prop_of_stocks, group = prop_of_stocks), alpha = 0.4) +
-  scale_fill_continuous(name = "Coverage", high = "#56B1F7", low = "#132B43") +
-  theme_light()
-
-
+  geom_bar(data = gather_test2, aes(x = year, y = y_axis, fill = prop_of_stocks), position = "stack", stat = "identity", 
+           alpha = 0.4) +
+  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
+  theme_light() 
 
 
 test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
