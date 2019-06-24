@@ -57,6 +57,10 @@ timeseries_values_views$region <-
   stock_info$region[match(timeseries_values_views$stockid, stock_info$stockid)]
 timeseries_values_views$primary_FAOname <-
   stock_info$primary_FAOname[match(timeseries_values_views$stockid, stock_info$stockid)]
+timeseries_values_views$MSYbest <-
+  bioparams_values_views$MSYbest[match(timeseries_values_views$stockid, bioparams_values_views$stockid)]
+timeseries_values_views$MSY <-
+  bioparams_values_views$MSY[match(timeseries_values_views$stockid, bioparams_values_views$stockid)]
 
 # Adding scientificname in order to match in taxGroup and FisheryType from taxonomy 
 # dataframe, also loaded during .RData import above:
@@ -270,6 +274,7 @@ for (j in 1:number_BdivBmsy_FAO_areas) {
   }
 }
 
+
 gather_test <- gather(BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -2], 
                       key = stock_status, 
                       value = prop_of_statuses, 
@@ -278,72 +283,38 @@ gather_test$stock_status <- factor(gather_test$stock_status,
                                    levels = rev(c("prop_stocks_0.8",
                                               "prop_0.8_stocks_1.2",
                                               "prop_stocks_1.2")))
-gather_colors <- c("green", "yellow", "red")
-names(gather_colors) <- levels(gather_test$stock_status)
+gather_colors <- c("red", "yellow", "green")
+names(gather_colors) <- c("prop_stocks_0.8",
+                          "prop_0.8_stocks_1.2",
+                          "prop_stocks_1.2")
+################ Version 1 
+# Works, just need to perfect legend placement
+
+ggplot(data = gather_test,
+       aes(x = year, y = prop_of_statuses)) +
+  geom_bar(aes(fill = stock_status, alpha = prop_of_stocks, color = prop_of_stocks), 
+           position = "stack", stat = "identity", size = 0) +
+  scale_fill_manual(name = "Stock status",
+                    values = gather_colors,
+                    labels = c("B/BMSY > 1.2",
+                               "0.8 < B/BMSY < 1.2",
+                               "B/BMSY < 0.8")) +
+  scale_color_continuous(name = "Coverage", high = "grey0", 
+                         low = "grey67") +
+  scale_alpha_continuous(name = "Coverage", range = c(0.3, 1)) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  guides(alpha = F) +
+  theme_light() +
+  theme(legend.position = "right") +
+  labs(y = "Proportion of stocks in B/BMSY category", x = "", 
+       title = "Stocks weighted equally") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
 
 gather_test2 <- BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -c(2:5)]
-
-p <- ggplot(data = gather_test,
-       aes(x = year, y = prop_of_statuses))
-
-p +  geom_bar(aes(fill = stock_status), position = "stack", stat = "identity") +
-  #scale_y_continuous(labels = scales::percent) +
-  # scale_fill_gradient(name = "Coverage",
-  #                     breaks = c(0, 0.25, 0.5, 0.75, 1),
-  #                     limits = c(0, 1),
-  #                     low = "springgreen",
-  #                     high = "springgreen4") +
-  
-  scale_fill_manual(name = "Stock status:",
-                    values = gather_colors) +
-  theme_light()
-
-p_layer_1 <- p + layer(mapping = aes(fill = stock_status), geom = "bar", stat = "identity",
-          position = "stack") +
-  scale_fill_manual(name = "Stock status:",
-                    values = gather_colors) +
-  theme_light()
-
-p + layer(mapping = aes(fill = prop_of_stocks, group = prop_of_stocks), data = gather_test2, geom = "area", stat = "identity",
-          position = "stack") +
-  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
-  theme_light()
-
-
 gather_test2$y_axis <- 1
-
-p_layer_2 <- p +
-  #new_scale("fill") +
-  geom_area(data = gather_test2, aes(x = year, y = y_axis,
-                fill = prop_of_stocks, group = prop_of_stocks)) +
-  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
-  theme_light() 
-  # scale_x_continuous(breaks = seq(1950,2020, by = 10),
-  #                    labels = seq(1950,2020, by = 10))
-
-p_layer_2 + 
-  new_scale("fill") +
-  # new_scale("x") +
-  geom_bar(data = gather_test, aes(fill = stock_status), position = "stack", stat = "identity", 
-           alpha = 0.5) +
-  scale_fill_manual(name = "Stock status:",
-                    values = gather_colors) 
-  # scale_x_continuous(breaks = seq(1950,2020, by = 10),
-  #                    labels = seq(1950,2020, by = 10))
-
-# Trying adding coverage as a line plot rather than a color gradient:
-p_layer_1 +
-  geom_line(aes(y = prop_of_stocks))
-
-# with stock status as the base layer, and coverage on a color gradient
-
-p_layer_1 +
-  new_scale("fill") +
-  geom_bar(data = gather_test2, aes(x = year, y = y_axis, fill = prop_of_stocks), position = "stack", stat = "identity", 
-           alpha = 0.4) +
-  scale_fill_continuous(name = "Coverage", high = "#132B43", low = "#56B1F7") +
-  theme_light() 
-
 
 test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
 test <- test[test$year >= 1950, ]
@@ -392,6 +363,90 @@ ggplot(data = test2,
   # scale_fill_manual(name = "Stock status:", 
   #                   values = my_colors) +
   theme_light()
+
+##################### Version 4 - using geom_segment 
+# - works, but the first version is a lot less processing intensive, so that will be easier
+segmented_data <- BdivBmsy_prop_df_list$`Atlantic-NW-21`
+
+segmented_data$prop_stocks_0.8_start <- 0
+segmented_data$prop_stocks_0.8_end <- segmented_data$prop_stocks_0.8_start + segmented_data$prop_stocks_0.8
+segmented_data$prop_0.8_stocks_1.2_start <- segmented_data$prop_stocks_0.8
+segmented_data$prop_0.8_stocks_1.2_end <- segmented_data$prop_0.8_stocks_1.2_start + segmented_data$prop_0.8_stocks_1.2
+segmented_data$prop_stocks_1.2_start <- segmented_data$prop_0.8_stocks_1.2_end
+segmented_data$prop_stocks_1.2_end <- segmented_data$prop_0.8_stocks_1.2_end + segmented_data$prop_stocks_1.2
+
+ 
+ggplot(data = segmented_data) +
+  geom_segment(aes(
+    x = year,
+    xend = year,
+    y = prop_stocks_0.8_start,
+    yend = prop_stocks_0.8_end,
+    alpha = prop_of_stocks
+  ), 
+  lineend = "butt",
+  size = 4,
+  color = "red") +
+  geom_segment(aes(
+    x = year,
+    xend = year,
+    y = prop_0.8_stocks_1.2_start,
+    yend = prop_0.8_stocks_1.2_end,
+    alpha = prop_of_stocks
+  ), 
+  lineend = "butt",
+  size = 4,
+  color = "yellow") +
+  geom_segment(aes(
+    x = year,
+    xend = year,
+    y = prop_stocks_1.2_start,
+    yend = prop_stocks_1.2_end,
+    alpha = prop_of_stocks
+  ), 
+  lineend = "butt",
+  size = 4,
+  color = "green") +
+  scale_alpha_continuous(range = c(0.3, 1)) +
+  # scale_color_gradient2(name = "", high = "red4", mid = "red", 
+  #                       low = "tomato", midpoint = 0.5) +
+  scale_color_manual(name = "Stock Status", values = my_colors) +
+  scale_x_continuous(limits = c(1950, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  theme_light() +
+  guides(alpha = FALSE) +
+  theme(legend.position = "none",  
+        panel.border = element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") 
+
+p_2_layer_2 <- p_2 + 
+  new_scale_color() +
+  geom_segment(aes(
+    x = year,
+    xend = year,
+    y = prop_0.8_stocks_1.2_start,
+    yend = prop_0.8_stocks_1.2_end,
+    alpha = prop_of_stocks
+  ), 
+  lineend = "butt",
+  size = 4,
+  color = "yellow") 
+  #scale_color_continuous(name = "", high = "yellow4", low = "yellow")
+
+p_2_layer_2 + 
+  new_scale_color() +
+  geom_segment(aes(
+    x = year,
+    xend = year,
+    y = prop_stocks_1.2_start,
+    yend = prop_stocks_1.2_end,
+    alpha = prop_of_stocks
+  ), 
+  lineend = "butt",
+  size = 4,
+  color = "green") 
+  #scale_color_continuous(name = "Coverage", high = "green4", low = "green")
 
 ################################################################################
 ########## Dataframes with Mean Biomass (Used for Biomass Coverage plots) ######
