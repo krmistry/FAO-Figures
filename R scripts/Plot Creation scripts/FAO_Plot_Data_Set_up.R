@@ -73,6 +73,26 @@ timeseries_values_views$FisheryType <-
 timeseries_values_views$taxGroup <-
   taxonomy$taxGroup[match(timeseries_values_views$scientificname, taxonomy$scientificname)]
 
+for (i in 1:nrow(timeseries_values_views)) {
+  stockid_x <- timeseries_values_views$stockid[i]
+  nrow_stockid_x <- nrow(timeseries_values_views[timeseries_values_views$stockid == stockid_x, ])
+  timeseries_values_views$meanC[i] <- sum(timeseries_values_views$TCbest[timeseries_values_views$stockid == stockid_x],
+                                          na.rm = TRUE)/nrow_stockid_x
+}
+
+
+for(i in 1:nrow(timeseries_values_views)) {
+  if (is.na(timeseries_values_views$MSYbest[i]) == FALSE) {
+    timeseries_values_views$MSY_or_meanC[i] <- timeseries_values_views$MSYbest[i]
+  } else if (is.na(timeseries_values_views$MSYbest[i]) == TRUE & 
+             is.na(timeseries_values_views$MSY[i]) == FALSE) {
+    timeseries_values_views$MSY_or_meanC[i] <- timeseries_values_views$MSY[i]
+  } else if (is.na(timeseries_values_views$MSYbest[i]) == TRUE & 
+             is.na(timeseries_values_views$MSY[i]) == TRUE) {
+    timeseries_values_views$MSY_or_meanC[i] <- timeseries_values_views$meanC[i]
+  }
+}
+
 
 # Change some region values to make them match plots from state space model 
 # output:
@@ -241,6 +261,8 @@ names(taxGroup_myColors) <- regions
 ############  BdivBmsy & Number of Stocks across Timeseries ####################
 ################################################################################
 
+
+# Stock proportions weighted based on number of stocks
 BdivBmsy_prop_df_list <- vector("list", length = number_BdivBmsy_FAO_areas)
 names(BdivBmsy_prop_df_list) <- BdivBmsy_FAO_areas
 
@@ -275,6 +297,43 @@ for (j in 1:number_BdivBmsy_FAO_areas) {
 }
 
 
+# Stocks weighted by MSY (or meanC if MSY not available)
+BdivBmsy_prop_MSY_list <- vector("list", length = number_BdivBmsy_FAO_areas)
+names(BdivBmsy_prop_MSY_list) <- BdivBmsy_FAO_areas
+
+for (i in 1:number_BdivBmsy_FAO_areas) {
+  BdivBmsy_prop_MSY_list[[i]] <- as.data.frame(matrix(NA, nrow = year_range,
+                                                     ncol = 5))
+  colnames(BdivBmsy_prop_MSY_list[[i]]) <- c("year", 
+                                            "summed_MSY",
+                                            "prop_stocks_0.8",
+                                            "prop_0.8_stocks_1.2",
+                                            "prop_stocks_1.2")
+  #rownames(BdivBmsy_prop_df_list[[i]]) <- years
+  for (j in 1:year_range) {
+    x <- subset(All_BdivBmsy.df_FAO_list[[i]], 
+                All_BdivBmsy.df_FAO_list[[i]]$year == j + 1949)
+    number_stocks <- length(unique(x$stockid))
+    BdivBmsy_prop_MSY_list[[i]][j, 1] <- years[j]
+    BdivBmsy_prop_MSY_list[[i]][j, 2] <- sum(x$MSY_or_meanC)
+    BdivBmsy_prop_MSY_list[[i]][j, 3] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[1]))/number_stocks
+    BdivBmsy_prop_MSY_list[[i]][j, 4] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[2]))/number_stocks
+    BdivBmsy_prop_MSY_list[[i]][j, 5] <- nrow(filter(x,
+                                                    x$BdivBmsy_category == BdivBmsy_categories[3]))/number_stocks
+  }
+}
+
+for (j in 1:number_BdivBmsy_FAO_areas) {
+  for (i in 1:nrow(BdivBmsy_prop_df_list[[j]])) {
+    BdivBmsy_prop_MSY_list[[j]]$prop_of_MSY[i] <- BdivBmsy_prop_MSY_list[[j]]$summed_MSY[i]/max(BdivBmsy_prop_MSY_list[[j]]$summed_MSY)
+  }
+}
+
+
+
+
 gather_test <- gather(BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -2], 
                       key = stock_status, 
                       value = prop_of_statuses, 
@@ -288,28 +347,45 @@ names(gather_colors) <- c("prop_stocks_0.8",
                           "prop_0.8_stocks_1.2",
                           "prop_stocks_1.2")
 ################ Version 1 
-# Works, just need to perfect legend placement
+# Works, just need to perfect legend
 
 ggplot(data = gather_test,
        aes(x = year, y = prop_of_statuses)) +
-  geom_bar(aes(fill = stock_status, alpha = prop_of_stocks, color = prop_of_stocks), 
+  geom_bar(aes(color = prop_of_stocks), 
            position = "stack", stat = "identity", size = 0) +
   scale_fill_manual(name = "Stock status",
                     values = gather_colors,
                     labels = c("B/BMSY > 1.2",
                                "0.8 < B/BMSY < 1.2",
                                "B/BMSY < 0.8")) +
-  scale_color_continuous(name = "Coverage", high = "grey0", 
-                         low = "grey67") +
-  scale_alpha_continuous(name = "Coverage", range = c(0.3, 1)) +
+  scale_color_continuous(name = "B/BMSY > 1.2", high = "green", 
+                         low = alpha("green", 0.3)) +
+  scale_alpha_continuous(name = "", range = c(0.3, 1)) +
   scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
                      labels = seq(1950, 2020, 10)) +
   guides(alpha = F) +
+  guides(fill = F) +
   theme_light() +
-  theme(legend.position = "right") +
   labs(y = "Proportion of stocks in B/BMSY category", x = "", 
        title = "Stocks weighted equally") +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") +
+  theme(legend.box = "vertical") +
+  new_scale_color() +
+  geom_bar(aes(color = prop_of_stocks),
+           position = "stack", stat = "identity", size = 0) +
+  scale_color_continuous(name = "0.8 < B/BMSY < 1.2", high = "yellow",
+                         low = alpha("yellow", 0.3)) +
+  new_scale_color() +
+  geom_bar(aes(fill = stock_status, alpha = prop_of_stocks, color = prop_of_stocks),
+           position = "stack", stat = "identity", size = 0) +
+  scale_color_continuous(name = "B/BMSY < 0.8", high = "red",
+                         low = alpha("red", 0.3)) +
+  #geom_text(aes(label = "Coverage", x = Inf, y = 1), hjust = -1) +
+  theme(legend.margin = margin(0.005, 0.005, 0.005, 0.005, "cm")) +
+  theme(legend.key.height = unit(0.75,"line")) +
+  guides(colour = guide_colorbar(title.vjust = 0.5))
+  
 
 
 
