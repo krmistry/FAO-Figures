@@ -1,5 +1,5 @@
 ## Created by Kelly Mistry, kelly.r.mistry@gmail.com
-## Last revised: 6/19/2019
+## Last revised: 6/28/2019
 
 # This script is designed to be run as part of
 # Region_or_taxGroup_Plots_Code-KM.R and it produces the transformed and
@@ -508,7 +508,6 @@ ggdraw() +
   draw_plot(plot2, x = 0, y = 0, width = 0.5, height = 0.82) +
   draw_plot(plot1, x = 0.5, y = 0, width = 0.5, height = 1) +
   draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.98)
-
 
 
 
