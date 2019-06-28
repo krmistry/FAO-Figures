@@ -14,7 +14,8 @@ library(readxl)
 library(ggnewscale)
 library(tidyr)
 library(ggplot2)
-
+library(gridExtra)
+library(grid)
 
 # ***** Notes on naming convention:
 # - all variables and dataframes used in the region plots begin with "region"
@@ -333,25 +334,46 @@ for (j in 1:number_BdivBmsy_FAO_areas) {
 
 
 
+BdivBmsy_prop_stock_gathered <- lapply(BdivBmsy_prop_df_list, function(x) {
+  df <- gather(x[, -2], 
+         key = stock_status, 
+         value = prop_of_statuses, 
+         prop_stocks_0.8:prop_stocks_1.2)
+  df$stock_status <- factor(df$stock_status, 
+                            levels = rev(c("prop_stocks_0.8",
+                                           "prop_0.8_stocks_1.2",
+                                           "prop_stocks_1.2")))
+  return(df)
+})
 
-gather_test <- gather(BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -2], 
-                      key = stock_status, 
-                      value = prop_of_statuses, 
-                      prop_stocks_0.8:prop_stocks_1.2)
-gather_test$stock_status <- factor(gather_test$stock_status, 
-                                   levels = rev(c("prop_stocks_0.8",
-                                              "prop_0.8_stocks_1.2",
-                                              "prop_stocks_1.2")))
+
+BdivBmsy_prop_MSY_gathered <- lapply(BdivBmsy_prop_MSY_list, function(x) {
+  df <- gather(x[, -2], 
+               key = stock_status, 
+               value = prop_of_statuses, 
+               prop_stocks_0.8:prop_stocks_1.2)
+  df$stock_status <- factor(df$stock_status, 
+                            levels = rev(c("prop_stocks_0.8",
+                                           "prop_0.8_stocks_1.2",
+                                           "prop_stocks_1.2")))
+  return(df)
+})
+
+
+# gather_test$stock_status <- factor(gather_test$stock_status, 
+#                                    levels = rev(c("prop_stocks_0.8",
+#                                               "prop_0.8_stocks_1.2",
+#                                               "prop_stocks_1.2")))
 gather_colors <- c("red", "yellow", "green")
 names(gather_colors) <- c("prop_stocks_0.8",
                           "prop_0.8_stocks_1.2",
                           "prop_stocks_1.2")
-################ Version 1 
-# Works, just need to perfect legend
 
-ggplot(data = gather_test,
-       aes(x = year, y = prop_of_statuses)) +
-  geom_bar(aes(color = prop_of_stocks), 
+################ Plot 1 of Figure 1 ########################################
+
+plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
+                aes(x = year, y = prop_of_statuses)) +
+  geom_bar(aes(color = prop_of_stocks), fill = "white", 
            position = "stack", stat = "identity", size = 0) +
   scale_fill_manual(name = "Stock status",
                     values = gather_colors,
@@ -359,170 +381,137 @@ ggplot(data = gather_test,
                                "0.8 < B/BMSY < 1.2",
                                "B/BMSY < 0.8")) +
   scale_color_continuous(name = "B/BMSY > 1.2", high = "green", 
-                         low = alpha("green", 0.3)) +
-  scale_alpha_continuous(name = "", range = c(0.3, 1)) +
+                         low = alpha("green", 0.3), labels = c("", "", "", "", "")) +
   scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
                      labels = seq(1950, 2020, 10)) +
   guides(alpha = F) +
   guides(fill = F) +
+  #guides(color = guide_colorbar(title.position = "right")) +
   theme_light() +
-  labs(y = "Proportion of stocks in B/BMSY category", x = "", 
-       title = "Stocks weighted equally") +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(legend.position = "bottom") +
-  theme(legend.box = "vertical") +
+  labs(y = "", x = "", 
+       caption = "Stocks weighted equally", title = "") +
+  theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) +
+  #theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "top", 
+        legend.box = "vertical",
+        legend.box.just = "right",
+        legend.justification = c(1, 0),
+        legend.margin = margin(0.001, 1, 0.001, 1, "cm"),
+        legend.key.height = unit(0.75, "line"),
+        legend.spacing = unit(0.05, "cm"),
+        #legend.key.width = unit(1, "cm"),
+        legend.title = element_text(size = 9)) +
   new_scale_color() +
-  geom_bar(aes(color = prop_of_stocks),
+  geom_bar(aes(color = prop_of_stocks), fill = "white",
            position = "stack", stat = "identity", size = 0) +
   scale_color_continuous(name = "0.8 < B/BMSY < 1.2", high = "yellow",
-                         low = alpha("yellow", 0.3)) +
+                         low = alpha("yellow", 0.3), labels = c("", "", "", "", "")) +
+  #guides(color = guide_colorbar(title.position = "right")) +
   new_scale_color() +
   geom_bar(aes(fill = stock_status, alpha = prop_of_stocks, color = prop_of_stocks),
            position = "stack", stat = "identity", size = 0) +
   scale_color_continuous(name = "B/BMSY < 0.8", high = "red",
-                         low = alpha("red", 0.3)) +
-  #geom_text(aes(label = "Coverage", x = Inf, y = 1), hjust = -1) +
-  theme(legend.margin = margin(0.005, 0.005, 0.005, 0.005, "cm")) +
-  theme(legend.key.height = unit(0.75,"line")) +
-  guides(colour = guide_colorbar(title.vjust = 0.5))
-  
+                         low = alpha("red", 0.3), labels = c("", "", "", "", "")) +
+  scale_alpha_continuous(name = "", range = c(0.3, 1)) +
+  annotate("text", x = 2012, y = 1.3, label = "Coverage") +
+  annotate("text", x = 2012, y = 1.07, label = "    0.25  0.5  0.75   1", size = 3.5) +
+  coord_cartesian(ylim = c(0, 1), clip = "off") 
+#guides(color = guide_colorbar(title.position = "right")) +
+#theme(legend.margin = margin(0.001, 1, 0.001, 1, "cm")) +
+#theme(legend.key.height = unit(0.75, "line")) +
+#theme(legend.title = element_text(size = 9))
+
+#guides(colour = guide_colorbar(title.vjust = 0.5))
 
 
+############### Plot 2 of Figure 1 (stockes weighed by MSY) #########################
 
-gather_test2 <- BdivBmsy_prop_df_list$`Atlantic-NW-21`[, -c(2:5)]
-gather_test2$y_axis <- 1
-
-test <- All_BdivBmsy.df_FAO_list$`Atlantic-NW-21`[,c(3, 7, 40)]
-test <- test[test$year >= 1950, ]
-test2 <- test[, c(3, 1, 2)]
- 
-BdivBmsy_sums_per_year <- as.data.frame(matrix(NA, nrow = year_range, ncol = 2))
-colnames(BdivBmsy_sums_per_year) <- c("year", "BdivBmsy_sum")
-BdivBmsy_sums_per_year[, 1] <- years
-for (i in 1:year_range) {
-  BdivBmsy_sums_per_year[i, 2] <- sum(test2$BdivBmsypref[test2$year == years[i]])
-}
-
-for (i in 1:nrow(test2)) {
-  # print(BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], ])
-  # print(test2$BdivBmsypref[i])
-  test2$BdivBmsy_prop[i] <- test2$BdivBmsypref[i]/BdivBmsy_sums_per_year[BdivBmsy_sums_per_year$year == test2$year[i], 2]
-}
-
-my_fun = function(vec){ 
-  as.numeric(vec[3]) / sum(test2$BdivBmsypref[test2$year == vec[2]]) 
-}
-
-test2$prop = apply(test2, 1, my_fun)
-
-for (i in 1:year_range) {
-  print(sum(test2$prop[test2$year == years[i]]))
-}
-
-test2$BdivBmsy_category <- factor(test2$BdivBmsy_category, 
-                                  levels = c("B/BMSY < 0.8", 
-                                             "0.8 < B/BMSY < 1.2",
-                                             "B/BMSY > 1.2"))
-my_colors <- c("red", "yellow", "green")
-names(my_colors) <- levels(test2$BdivBmsy_category)
-
-ggplot(data = test2,
-       aes(x = year, y = prop, fill = prop)) +
-  geom_bar(position = "stack", stat = "identity") +
-  scale_y_continuous(labels = scales::percent) +
-  scale_fill_gradient(name = "Coverage",
-                      breaks = c(0, 0.25, 0.5, 0.75, 1),
-                      limits = c(0, 1),
-                      low = "springgreen",
-                      high = "springgreen4") +
-  
-  # scale_fill_manual(name = "Stock status:", 
-  #                   values = my_colors) +
-  theme_light()
-
-##################### Version 4 - using geom_segment 
-# - works, but the first version is a lot less processing intensive, so that will be easier
-segmented_data <- BdivBmsy_prop_df_list$`Atlantic-NW-21`
-
-segmented_data$prop_stocks_0.8_start <- 0
-segmented_data$prop_stocks_0.8_end <- segmented_data$prop_stocks_0.8_start + segmented_data$prop_stocks_0.8
-segmented_data$prop_0.8_stocks_1.2_start <- segmented_data$prop_stocks_0.8
-segmented_data$prop_0.8_stocks_1.2_end <- segmented_data$prop_0.8_stocks_1.2_start + segmented_data$prop_0.8_stocks_1.2
-segmented_data$prop_stocks_1.2_start <- segmented_data$prop_0.8_stocks_1.2_end
-segmented_data$prop_stocks_1.2_end <- segmented_data$prop_0.8_stocks_1.2_end + segmented_data$prop_stocks_1.2
-
- 
-ggplot(data = segmented_data) +
-  geom_segment(aes(
-    x = year,
-    xend = year,
-    y = prop_stocks_0.8_start,
-    yend = prop_stocks_0.8_end,
-    alpha = prop_of_stocks
-  ), 
-  lineend = "butt",
-  size = 4,
-  color = "red") +
-  geom_segment(aes(
-    x = year,
-    xend = year,
-    y = prop_0.8_stocks_1.2_start,
-    yend = prop_0.8_stocks_1.2_end,
-    alpha = prop_of_stocks
-  ), 
-  lineend = "butt",
-  size = 4,
-  color = "yellow") +
-  geom_segment(aes(
-    x = year,
-    xend = year,
-    y = prop_stocks_1.2_start,
-    yend = prop_stocks_1.2_end,
-    alpha = prop_of_stocks
-  ), 
-  lineend = "butt",
-  size = 4,
-  color = "green") +
-  scale_alpha_continuous(range = c(0.3, 1)) +
-  # scale_color_gradient2(name = "", high = "red4", mid = "red", 
-  #                       low = "tomato", midpoint = 0.5) +
-  scale_color_manual(name = "Stock Status", values = my_colors) +
-  scale_x_continuous(limits = c(1950, 2020), breaks = seq(1950, 2020, 10), 
-                     labels = seq(1950, 2020, 10)) +
+plot2 <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Atlantic-NW-21`,
+                aes(x = year, y = prop_of_statuses)) +
+  geom_bar(aes(fill = stock_status, alpha = prop_of_MSY),
+           position = "stack", stat = "identity") +
+  scale_fill_manual(name = "Stock status",
+                    values = gather_colors,
+                    labels = c("B/BMSY > 1.2",
+                               "0.8 < B/BMSY < 1.2",
+                               "B/BMSY < 0.8")) +
   theme_light() +
   guides(alpha = FALSE) +
-  theme(legend.position = "none",  
-        panel.border = element_blank()) +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(legend.position = "bottom") 
+  guides(fill = FALSE) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_alpha_continuous(name = "", range = c(0.3, 1)) +
+  labs(caption = "Stocks weighted by MSY", x = "", 
+       y = "Proportion of stocks in B/BMSY category") +
+  theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) 
 
-p_2_layer_2 <- p_2 + 
-  new_scale_color() +
-  geom_segment(aes(
-    x = year,
-    xend = year,
-    y = prop_0.8_stocks_1.2_start,
-    yend = prop_0.8_stocks_1.2_end,
-    alpha = prop_of_stocks
-  ), 
-  lineend = "butt",
-  size = 4,
-  color = "yellow") 
-  #scale_color_continuous(name = "", high = "yellow4", low = "yellow")
 
-p_2_layer_2 + 
-  new_scale_color() +
-  geom_segment(aes(
-    x = year,
-    xend = year,
-    y = prop_stocks_1.2_start,
-    yend = prop_stocks_1.2_end,
-    alpha = prop_of_stocks
-  ), 
-  lineend = "butt",
-  size = 4,
-  color = "green") 
-  #scale_color_continuous(name = "Coverage", high = "green4", low = "green")
+##### Putting the 2 plots together into Figure 1 ##############
+
+grid.arrange(
+  plot1,
+  plot2,
+  nrow = 1,
+  top = BdivBmsy_FAO_areas[1]
+)
+
+
+grid_arrange_shared_legend <-
+  function(...,
+           ncol = length(list(...)),
+           nrow = 1,
+           position = c("bottom", "right")) {
+    
+    plots <- list(...)
+    position <- match.arg(position)
+    g <-
+      ggplotGrob(plots[[1]] + theme(legend.position = position))$grobs
+    legend <- g[[which(sapply(g, function(x)
+      x$name) == "guide-box")]]
+    lheight <- sum(legend$height)
+    lwidth <- sum(legend$width)
+    gl <- lapply(plots, function(x)
+      x + theme(legend.position = "none"))
+    gl <- c(gl, ncol = ncol, nrow = nrow)
+    
+    combined <- switch(
+      position,
+      "bottom" = arrangeGrob(
+        do.call(arrangeGrob, gl),
+        legend,
+        ncol = 1,
+        heights = unit.c(unit(1, "npc") - lheight, lheight)
+      ),
+      "right" = arrangeGrob(
+        do.call(arrangeGrob, gl),
+        legend,
+        ncol = 2,
+        widths = unit.c(unit(1, "npc") - lwidth, lwidth)
+      )
+    )
+    
+    grid.newpage()
+    grid.draw(combined)
+    
+    # return gtable invisibly
+    invisible(combined)
+    
+  }
+
+grid_arrange_shared_legend(plot1, plot2)
+
+plot_grid(plot2, plot1, labels=c("A", "B"), nrow = 1)
+
+# this is the best version at the moment (includes overall figure title)
+ggdraw() +
+  #draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.985) +
+  draw_plot(plot2, x = 0, y = 0, width = 0.5, height = 0.82) +
+  draw_plot(plot1, x = 0.5, y = 0, width = 0.5, height = 1) +
+  draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.98)
+
+
+
+
 
 ################################################################################
 ########## Dataframes with Mean Biomass (Used for Biomass Coverage plots) ######
