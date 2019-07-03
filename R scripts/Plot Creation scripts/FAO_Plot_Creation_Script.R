@@ -27,6 +27,7 @@ load(here::here("Data/RAM v4.44 DB Files With Model Fit Data (1-29-19)/DBdata.RD
 #     stockids that are wrong - TAKE OUT ONCE THIS IS FIXED ************************
 timeseries_values_views$stockid[timeseries_values_views$stockid == "CODIabdce"] <- "COD1abdce"
 timeseries_values_views$stockid[timeseries_values_views$stockid == "CODIf-XIV"] <- "COD1f-XIV"
+timeseries_values_views$stockid[timeseries_values_views$stockid == "NPOUTVIb"] <- "NPOUTVIa"
 #**********************************************************************************
 
 # File that contains stockid mapped to region and scientificname:
@@ -118,6 +119,20 @@ for (i in 1:nrow(All_BdivBmsy.df)) {
 
 any(is.na(All_BdivBmsy.df$BdivBmsy_category))
 
+# Subsetting data of RAM data for FAO landings plot
+RAM_raw_landings <- subset(timeseries_values_views,
+                       is.na(timeseries_values_views$TCbest) == FALSE)
+
+RAM_raw_landings$primary_FAOname <- as.character(RAM_raw_landings$primary_FAOname)
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Pacific Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Pacific Ocean tunas"
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Atlantic Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Atlantic Ocean tunas"
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Indian Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Indian Ocean tunas"
+RAM_raw_landings$primary_FAOname <- as.factor(RAM_raw_landings$primary_FAOname)
+
+
 ##################################################################################
 ######### Parameters for All Data Transformations & Segmentations ################
 #################################################################################
@@ -130,6 +145,7 @@ any(is.na(All_BdivBmsy.df$BdivBmsy_category))
 
 # FAO area lists:
 all_FAO_areas <- unique(timeseries_values_views$primary_FAOname)
+all_FAO_areas <- all_FAO_areas[-20] # removing NA until final stock (Norway Pout) is resolved
 BdivBmsy_FAO_areas <- unique(All_BdivBmsy.df$primary_FAOname)
 number_FAO_areas <- length(all_FAO_areas)
 number_BdivBmsy_FAO_areas <- length(BdivBmsy_FAO_areas)
@@ -185,7 +201,7 @@ All_TBbest.df_FAO_list <- split(All_TBbest.df,
                                 All_TBbest.df$primary_FAOname)
 All_BdivBmsy.df_FAO_list <- split(All_BdivBmsy.df, 
                                   All_BdivBmsy.df$primary_FAOname)
-
+RAM_raw_landings_list <- split(RAM_raw_landings, RAM_raw_landings$primary_FAOname)
 
 ################################################################################
 ############  BdivBmsy & Number of Stocks across Timeseries ####################
@@ -243,15 +259,17 @@ for (i in 1:number_BdivBmsy_FAO_areas) {
   for (j in 1:year_range) {
     x <- subset(All_BdivBmsy.df_FAO_list[[i]], 
                 All_BdivBmsy.df_FAO_list[[i]]$year == j + 1949)
-    number_stocks <- length(unique(x$stockid))
+    x_under_0.8 <- filter(x,
+                          x$BdivBmsy_category == BdivBmsy_categories[1])
+    x_0.8_to_1.2 <- filter(x,
+                           x$BdivBmsy_category == BdivBmsy_categories[2])
+    x_over_1.2 <- filter(x,
+                         x$BdivBmsy_category == BdivBmsy_categories[3])
     BdivBmsy_prop_MSY_list[[i]][j, 1] <- years[j]
     BdivBmsy_prop_MSY_list[[i]][j, 2] <- sum(x$MSY_or_meanC)
-    BdivBmsy_prop_MSY_list[[i]][j, 3] <- nrow(filter(x,
-                                                     x$BdivBmsy_category == BdivBmsy_categories[1]))/number_stocks
-    BdivBmsy_prop_MSY_list[[i]][j, 4] <- nrow(filter(x,
-                                                     x$BdivBmsy_category == BdivBmsy_categories[2]))/number_stocks
-    BdivBmsy_prop_MSY_list[[i]][j, 5] <- nrow(filter(x,
-                                                     x$BdivBmsy_category == BdivBmsy_categories[3]))/number_stocks
+    BdivBmsy_prop_MSY_list[[i]][j, 3] <- sum(x_under_0.8$MSY_or_meanC)/BdivBmsy_prop_MSY_list[[i]][j, 2] 
+    BdivBmsy_prop_MSY_list[[i]][j, 4] <- sum(x_0.8_to_1.2$MSY_or_meanC)/BdivBmsy_prop_MSY_list[[i]][j, 2]
+    BdivBmsy_prop_MSY_list[[i]][j, 5] <- sum(x_over_1.2$MSY_or_meanC)/BdivBmsy_prop_MSY_list[[i]][j, 2]
   }
 }
 
@@ -299,8 +317,9 @@ names(gather_colors) <- c("prop_stocks_0.8",
                           "prop_stocks_1.2")
 
 ################ Plot 1 of Figure 1 ########################################
+Bmsy <- expression("B"["MSY"])
 
-plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
+plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Pacific-NW-61`,
                 aes(x = year, y = prop_of_statuses)) +
   geom_bar(aes(color = prop_of_stocks), fill = "white", 
            position = "stack", stat = "identity", size = 0) +
@@ -317,7 +336,7 @@ plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
   guides(fill = F) +
   #guides(color = guide_colorbar(title.position = "right")) +
   theme_light() +
-  labs(y = "", x = "", 
+  labs(y = paste("Proportion of stocks in B/", Bmsy, " category"), x = "", 
        caption = "Stocks weighted equally", title = "") +
   theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) +
   #theme(plot.title = element_text(hjust = 0.5)) +
@@ -329,7 +348,8 @@ plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
         legend.key.height = unit(0.75, "line"),
         legend.spacing = unit(0.05, "cm"),
         #legend.key.width = unit(1, "cm"),
-        legend.title = element_text(size = 9)) +
+        legend.title = element_text(size = 9),
+        legend.key = element_rect(colour = "black", size = 4)) +
   new_scale_color() +
   geom_bar(aes(color = prop_of_stocks), fill = "white",
            position = "stack", stat = "identity", size = 0) +
@@ -343,7 +363,7 @@ plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
                          low = alpha("red", 0.3), labels = c("", "", "", "", "")) +
   scale_alpha_continuous(name = "", range = c(0.3, 1)) +
   annotate("text", x = 2012, y = 1.3, label = "Coverage") +
-  annotate("text", x = 2012, y = 1.07, label = "    0.25  0.5  0.75   1", size = 3.5) +
+  annotate("text", x = 2012, y = 1.07, label = "0  0.25  0.5  0.75   1", size = 3.5) +
   coord_cartesian(ylim = c(0, 1), clip = "off") 
 #guides(color = guide_colorbar(title.position = "right")) +
 #theme(legend.margin = margin(0.001, 1, 0.001, 1, "cm")) +
@@ -355,7 +375,7 @@ plot1 <- ggplot(data = BdivBmsy_prop_stock_gathered$`Atlantic-NW-21`,
 
 ############### Plot 2 of Figure 1 (stockes weighed by MSY) #########################
 
-plot2 <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Atlantic-NW-21`,
+plot2 <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Pacific-NW-61`,
                 aes(x = year, y = prop_of_statuses)) +
   geom_bar(aes(fill = stock_status, alpha = prop_of_MSY),
            position = "stack", stat = "identity") +
@@ -371,7 +391,7 @@ plot2 <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Atlantic-NW-21`,
                      labels = seq(1950, 2020, 10)) +
   scale_alpha_continuous(name = "", range = c(0.3, 1)) +
   labs(caption = "Stocks weighted by MSY", x = "", 
-       y = "Proportion of stocks in B/BMSY category") +
+       y = "Proportion of summed MSY in B/BMSY category") +
   theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) 
 
 
@@ -435,8 +455,8 @@ plot_grid(plot2, plot1, labels=c("A", "B"), nrow = 1)
 ggdraw() +
   #draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.985) +
   draw_plot(plot2, x = 0, y = 0, width = 0.5, height = 0.82) +
-  draw_plot(plot1, x = 0.5, y = 0, width = 0.5, height = 1) +
-  draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.98)
+  draw_plot(plot1, x = 0.5, y = 0, width = 0.5, height = 1) 
+  #draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.98)
 
 #####################################################################################
 # Data set up for Figure 2 (FAO and RAM total landings, 1950 - 2017)
@@ -452,5 +472,174 @@ FAO_landings_gathered$Year <- as.numeric(gsub("X", "", FAO_landings_gathered$Yea
 
 # Delete rows with NA Landings values
 FAO_landings_gathered <- FAO_landings_gathered[-which(is.na(FAO_landings_gathered$Landings)), ]
+
+FAO_landings_list <- split(FAO_landings_gathered, 
+                           FAO_landings_gathered$reg_FAOreport)
+
+
+# Summing across years within each FAO region for the RAM landings data:
+RAM_summed_landings_list <- vector("list", length = number_FAO_areas)
+names(RAM_summed_landings_list) <- all_FAO_areas
+
+for (i in 1:number_FAO_areas) {
+  RAM_summed_landings_list[[i]] <- as.data.frame(matrix(NA, nrow = year_range,
+                                                      ncol = 2))
+  colnames(RAM_summed_landings_list[[i]]) <- c("year",
+                                               "summed_TCbest")
+  first_subset <- subset(RAM_raw_landings, 
+                         RAM_raw_landings$primary_FAOname == all_FAO_areas[i])
+  for (j in 1:year_range) {
+    x <- subset(first_subset, 
+                first_subset$year == j + 1949)
+    RAM_summed_landings_list[[i]][j, 1] <- years[j]
+    RAM_summed_landings_list[[i]][j, 2] <- sum(x$TCbest)
+  }
+}
+
+
+
+# Creating example plot - 2 line plots, one for RAM data the other for FAO data
+ggplot() +
+  geom_line(data = FAO_landings_list$`Atlantic-EC-34`, 
+            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
+  geom_line(data = RAM_summed_landings_list$`Atlantic-EC-34`,
+            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
+  scale_color_manual(name = "", 
+                    values = c("FAO Database" = "red", "RAM v4.44" = "blue")) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_classic() +
+  labs(x = "", y = "Summed catch or landings (MMT)") +
+  theme(legend.position = "top")
+
+
+# Testing with options for highlighting stocks with the most leverage on RAM (most
+# leverage defined as max meanC for the moment)
+max_meanCs <- sort(unique(RAM_raw_landings_list$`Atlantic-NW-21`$meanC), decreasing = TRUE)[1:3]
+
+# first version with top 3 stocks as separate lines:
+meanC_1_ind <- which(RAM_raw_landings_list$`Atlantic-NW-21`$meanC == max_meanCs[1])[1]
+meanC_2_ind <- which(RAM_raw_landings_list$`Atlantic-NW-21`$meanC == max_meanCs[2])[1]
+meanC_3_ind <- which(RAM_raw_landings_list$`Atlantic-NW-21`$meanC == max_meanCs[3])[1]
+
+top_3_meanC_stockids <- c(RAM_raw_landings_list$`Atlantic-NW-21`$stockid[meanC_1_ind],
+                          RAM_raw_landings_list$`Atlantic-NW-21`$stockid[meanC_2_ind],
+                          RAM_raw_landings_list$`Atlantic-NW-21`$stockid[meanC_3_ind])
+
+stock_1_data <- RAM_raw_landings_list$`Atlantic-NW-21`[RAM_raw_landings_list$`Atlantic-NW-21`$stockid == top_3_meanC_stockids[1],]
+stock_2_data <- RAM_raw_landings_list$`Atlantic-NW-21`[RAM_raw_landings_list$`Atlantic-NW-21`$stockid == top_3_meanC_stockids[2],]
+stock_3_data <- RAM_raw_landings_list$`Atlantic-NW-21`[RAM_raw_landings_list$`Atlantic-NW-21`$stockid == top_3_meanC_stockids[3],]
+
+stock_1_data <- stock_1_data[, c(1:3, 5)]
+stock_1_data <- stock_1_data[stock_1_data$year >= 1950, ]
+stock_2_data <- stock_2_data[, c(1:3, 5)]
+stock_2_data <- stock_2_data[stock_2_data$year >= 1950, ]
+stock_3_data <- stock_3_data[, c(1:3, 5)]
+stock_3_data <- stock_3_data[stock_3_data$year >= 1950, ]
+
+column_3 <- paste(stock_1_data$stockid[1], "TCbest")
+column_4 <- paste(stock_2_data$stockid[1], "TCbest")
+column_5 <- paste(stock_3_data$stockid[1], "TCbest")
+
+test_summed_landings <- RAM_summed_landings_list$`Atlantic-NW-21`
+test_summed_landings$MENATLAN <- stock_1_data$TCbest[match(test_summed_landings$year, stock_1_data$year)]
+test_summed_landings$HERRNWATLC <- stock_2_data$TCbest[match(test_summed_landings$year, stock_2_data$year)]
+test_summed_landings$HERR4VWX <- stock_3_data$TCbest[match(test_summed_landings$year, stock_3_data$year)]
+
+ggplot() +
+  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
+            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = MENATLAN/1000000, color = "MENATLAN")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = HERRNWATLC/1000000, color = "HERRNWATLC")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = HERR4VWX/1000000, color = "HERR4VWX")) +
+  scale_color_manual(name = "", 
+                     values = c("FAO Database" = "red", 
+                                "RAM v4.44" = "blue",
+                                "MENATLAN" = "green",
+                                "HERRNWATLC" = "gold",
+                                "HERR4VWX" = "orange")) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_classic() +
+  labs(x = "", y = "Summed catch or landings (MMT)") +
+  theme(legend.position = "top")
+
+# Trying the above plot with shading for the top 3 RAM stocks rather than a line
+
+ggplot() +
+  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
+            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
+  geom_area(data = test_summed_landings,
+            aes(x = year, y = (MENATLAN + HERRNWATLC + HERR4VWX)/1000000, fill = "HERR4VWX")) +
+  geom_area(data = test_summed_landings,
+            aes(x = year, y = (MENATLAN + HERRNWATLC)/1000000, fill = "HERRNWATLC")) +
+  geom_area(data = test_summed_landings,
+            aes(x = year, y = MENATLAN/1000000, fill = "MENATLAN")) +
+  scale_color_manual(name = "", 
+                     values = c("FAO Database" = "red", 
+                                "RAM v4.44" = "blue")) +
+  scale_fill_manual(name = "",
+                    values = c("MENATLAN" = "green",
+                               "HERRNWATLC" = "yellow",
+                               "HERR4VWX" = "orange")) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_classic() +
+  labs(x = "", y = "Summed catch or landings (MMT)") +
+  theme(legend.position = "top")
+
+
+# Second version with top 3 stocks summed into a single line:
+
+test_summed_landings$summed_top_3_TCbest <- rowSums(test_summed_landings[, 3:5], na.rm = T)
+test_summed_landings$summed_top_3_TCbest[test_summed_landings$summed_top_3_TCbest == 0] <- NA
+
+ggplot() +
+  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
+            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = summed_top_3_TCbest/1000000, color = "RAM - top 3 stocks summed")) +
+  scale_color_manual(name = "", 
+                     values = c("FAO Database" = "red", 
+                                "RAM v4.44" = "blue",
+                                "RAM - top 3 stocks summed" = "green")) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_classic() +
+  labs(x = "", y = "Summed catch or landings (MMT)") +
+  theme(legend.position = "top")
+
+# Trying the above plot with shading for the top 3 RAM stocks rather than a line
+ggplot() +
+  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
+            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
+  geom_line(data = test_summed_landings,
+            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
+  geom_area(data = test_summed_landings,
+            aes(x = year, y = summed_top_3_TCbest/1000000, fill = "RAM - top 3 stocks summed")) +
+  scale_color_manual(name = "", 
+                     values = c("FAO Database" = "red", 
+                                "RAM v4.44" = "blue")) +
+  scale_fill_manual(name = "",
+                    values = c("RAM - top 3 stocks summed" = "lightblue")) +
+  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
+                     labels = seq(1950, 2020, 10)) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_classic() +
+  labs(x = "", y = "Summed catch or landings (MMT)") +
+  theme(legend.position = "top")
 
 
