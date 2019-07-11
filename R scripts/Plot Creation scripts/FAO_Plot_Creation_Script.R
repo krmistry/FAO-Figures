@@ -58,6 +58,8 @@ timeseries_values_views$FisheryType <-
 timeseries_values_views$taxGroup <-
   taxonomy$taxGroup[match(timeseries_values_views$scientificname, taxonomy$scientificname)]
 
+# Creating temporary meanC column until I get the new version of timeseries_values_views
+# from Daniel with this column included
 for (i in 1:nrow(timeseries_values_views)) {
   stockid_x <- timeseries_values_views$stockid[i]
   nrow_stockid_x <- nrow(timeseries_values_views[timeseries_values_views$stockid == stockid_x, ])
@@ -121,7 +123,8 @@ any(is.na(All_BdivBmsy.df$BdivBmsy_category))
 
 # Subsetting data of RAM data for FAO landings plot
 RAM_raw_landings <- subset(timeseries_values_views,
-                       is.na(timeseries_values_views$TCbest) == FALSE)
+                       is.na(timeseries_values_views$TCbest) == FALSE & 
+                         !timeseries_values_views$region %in% "Pacific Salmon")
 
 RAM_raw_landings$primary_FAOname <- as.character(RAM_raw_landings$primary_FAOname)
 RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Pacific Ocean" & 
@@ -145,19 +148,17 @@ RAM_raw_landings$primary_FAOname <- as.factor(RAM_raw_landings$primary_FAOname)
 
 # FAO area lists:
 all_FAO_areas <- unique(timeseries_values_views$primary_FAOname)
-all_FAO_areas <- all_FAO_areas[-20] # removing NA until final stock (Norway Pout) is resolved
 BdivBmsy_FAO_areas <- unique(All_BdivBmsy.df$primary_FAOname)
+landings_FAO_areas <- unique(RAM_raw_landings$primary_FAOname)
+filtered_FAO_areas <- landings_FAO_areas[!landings_FAO_areas %in% c("Pacific-WC-71", 
+                                                          "Indian-Antarctic-58",
+                                                          "inland-Asia-4",
+                                                          "Pacific-Antarctic-88")]
+
 number_FAO_areas <- length(all_FAO_areas)
 number_BdivBmsy_FAO_areas <- length(BdivBmsy_FAO_areas)
+number_filtered_FAO_areas <- length(filtered_FAO_areas)
 
-# FAO areas to exclude based on small data sets:
-# Pacific-WC-71
-# Indian-Antarctic-58
-# inland-Asia-4
-# Pacific-Antarctic-88
-# - omit Pacific salmon RAM regions
-# filter tunas out of other FAO regions and put in their own tuna regions (Atlantic, Pacific 
-# and Indian)
 
 # Region lists:
 regions <- unique(timeseries_values_views$region)
@@ -211,28 +212,6 @@ All_TBbest.df_FAO_list <- split(All_TBbest.df,
 All_BdivBmsy.df_FAO_list <- split(All_BdivBmsy.df, 
                                   All_BdivBmsy.df$primary_FAOname)
 RAM_raw_landings_list <- split(RAM_raw_landings, RAM_raw_landings$primary_FAOname)
-
-
-# Calculating % of stocks in each year in each region with B/BMSY < 1 and B/BMSY < 0.8
-
-global_BdivBmsy <- as.data.frame(matrix(NA, nrow = length(years), ncol = 4))
-colnames(global_BdivBmsy) <- c("year", "number_stocks", "BdivBMSY<=0.8", "BdivBMSY<=1")
-for (year in 1:year_range) {
-  year_data <- All_BdivBmsy.df[All_BdivBmsy.df$year == years[year],]
-  global_BdivBmsy[year, 1] <- years[year]
-  global_BdivBmsy[year, 2] <- length(unique(year_data$stockid))
-  global_BdivBmsy[year, 3] <- nrow(year_data[year_data$BdivBmsypref <= 0.8, ])/global_BdivBmsy[year, 2]
-  global_BdivBmsy[year, 4] <- nrow(year_data[year_data$BdivBmsypref <= 1, ])/global_BdivBmsy[year, 2]
-  #global_BdivBmsy[year, 5] <- nrow(year_data[year_data$BdivBmsypref > 1, ])/global_BdivBmsy[year, 2]
-}
-
-write.csv(global_BdivBmsy, file = "RAM BdivBmsy Percentages.csv")
-
-ggplot(data = global_BdivBmsy) +
-  geom_area(aes(x = year, y = number_stocks/max(global_BdivBmsy$number_stocks)), 
-            fill = "green", alpha = 0.5) +
-  geom_line(aes(x = year, y = `BdivBMSY<=0.8`), color = "red") +
-  geom_line(aes(x = year, y = `BdivBMSY<=1`), color = "blue")
 
 
 ################################################################################
@@ -348,74 +327,31 @@ names(gather_colors) <- c("prop_stocks_0.8",
                           "prop_0.8_stocks_1.2",
                           "prop_stocks_1.2")
 
-################ Plot 1 of Figure 1 ########################################
-Bmsy <- expression(B[MSY])
+################ Plot 1 of Figure 1 (no legend) ########################################
 
 weighted_equal_plot <- ggplot(data = BdivBmsy_prop_stock_gathered$`Pacific-NE-67`,
                 aes(x = year, y = prop_of_statuses)) +
   geom_bar(aes(fill = stock_status, alpha = prop_of_stocks),
            position = "stack", stat = "identity") +
-  # geom_bar(aes(color = prop_of_stocks), fill = "white", 
-  #          position = "stack", stat = "identity", size = 0) +
   scale_fill_manual(name = "Stock status",
                     values = gather_colors,
                     labels = c("B/BMSY > 1.2",
                                "0.8 < B/BMSY < 1.2",
                                "B/BMSY < 0.8")) +
-  # scale_color_continuous(name = "B/BMSY > 1.2", high = "green", 
-  #                        low = alpha("green", 0.3), labels = c("", "", "", "", "")) +
   scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
                      labels = seq(1950, 2020, 10)) +
   scale_alpha_continuous(name = "", range = c(0.3, 1)) +
   guides(alpha = F) +
   guides(fill = F) +
-  #guides(color = guide_colorbar(title.position = "right")) +
   theme_light() +
-  labs(y = paste("Proportion of stocks in B/", Bmsy, " category"), 
-       x = "", 
-       #caption = "Stocks weighted equally", 
-       title = "") 
-  # theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) 
-  # theme(plot.title = element_text(hjust = 0.5)) +
-  # theme(legend.position = "top", 
-  #       legend.box = "vertical",
-  #       legend.box.just = "right",
-  #       legend.justification = c(1, 0),
-  #       legend.margin = margin(0.001, 1, 0.001, 1, "cm"),
-  #       legend.key.height = unit(0.75, "line"),
-  #       legend.spacing = unit(0.05, "cm"),
-  #       #legend.key.width = unit(1, "cm"),
-  #       legend.title = element_text(size = 9),
-  #       legend.key = element_rect(colour = "black", size = 4)) +
-  # new_scale_color() +
-  # geom_bar(aes(color = prop_of_stocks), fill = "white",
-  #          position = "stack", stat = "identity", size = 0) +
-  # scale_color_continuous(name = "0.8 < B/BMSY < 1.2", high = "yellow",
-  #                        low = alpha("yellow", 0.3), labels = c("", "", "", "", "")) +
-  # #guides(color = guide_colorbar(title.position = "right")) +
-  # new_scale_color() +
-  # geom_bar(aes(fill = stock_status, alpha = prop_of_stocks, color = prop_of_stocks),
-  #          position = "stack", stat = "identity", size = 0) +
-  # scale_color_continuous(name = "B/BMSY < 0.8", high = "red",
-  #                        low = alpha("red", 0.3), labels = c("", "", "", "", "")) +
-  # scale_alpha_continuous(name = "", range = c(0.3, 1)) +
-  # annotate("text", x = 2012, y = 1.3, label = "Coverage") +
-  # annotate("text", x = 2012, y = 1.07, label = "0  0.25  0.5  0.75   1", size = 3.5) +
-  # coord_cartesian(ylim = c(0, 1), clip = "off") 
-#guides(color = guide_colorbar(title.position = "right")) +
-#theme(legend.margin = margin(0.001, 1, 0.001, 1, "cm")) +
-#theme(legend.key.height = unit(0.75, "line")) +
-#theme(legend.title = element_text(size = 9))
-
-#guides(colour = guide_colorbar(title.vjust = 0.5))
+  labs(y = expression(paste("Proportion of stocks in B/", B[M][S][Y], " category", sep = "")), 
+       x = "", title = "") 
 
 
-############### Plot 2 of Figure 1 (stockes weighed by MSY) #########################
+############### Plot 2 of Figure 1 (includes legend #########################
 
 MSY_weighted_plot <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Pacific-NE-67`,
                 aes(x = year, y = prop_of_statuses)) +
-  # geom_bar(aes(fill = stock_status, alpha = prop_of_MSY),
-  #          position = "stack", stat = "identity") +
   geom_bar(aes(color = prop_of_MSY), fill = "white",
            position = "stack", stat = "identity", size = 0) +
   scale_fill_manual(name = "Stock status",
@@ -423,26 +359,30 @@ MSY_weighted_plot <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Pacific-NE-67`,
                     labels = c("B/BMSY > 1.2",
                                "0.8 < B/BMSY < 1.2",
                                "B/BMSY < 0.8")) +
-  scale_color_continuous(name = "B/BMSY > 1.2", high = "green",
-                         low = alpha("green", 0.3), labels = c("", "", "", "", "")) +
+  scale_color_continuous(name = expression(paste("B/", B[M][S][Y], " > 1.2", sep = "")), high = "green",
+                         low = alpha("green", 0.3), labels = c("", "", "Coverage", "", ""),
+                         limits = c(0,1),
+                         guide = guide_colorbar(frame.colour = "black", 
+                                                ticks.colour = "black",
+                                                title.vjust = 0.1,
+                                                order = 1,
+                                                label.position = "top",
+                                                label.theme = element_text(size = 10))) +
   # scale_color_continuous(name = "0.8 < B/BMSY < 1.2", high = "yellow",
   #                        low = alpha("yellow", 0.3), labels = c("", "", "", "", "")) +
   theme_light() +
   guides(alpha = FALSE) +
   guides(fill = FALSE) +
+  #guides(color = guide_colorbar(title.vjust = 0.8)) +
   scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
                      labels = seq(1950, 2020, 10)) +
-  #scale_alpha_continuous(name = "", range = c(0.3, 1)) +
-  labs(
-    #caption = "Stocks weighted by MSY", 
-       x = "", 
-       y = "Proportion of summed MSY in B/BMSY category") +
-  #theme(plot.caption = element_text(hjust = 0.5, size = 10, face = "bold")) +
+  labs(x = "", 
+       y = expression(paste("Proportion of summed MSY in B/", B[M][S][Y], "category"))) +
   theme(legend.position = "top", 
         legend.box = "vertical",
         legend.box.just = "right",
         legend.justification = c(1, 0),
-        legend.margin = margin(0.001, 1, 0.001, 1, "cm"),
+        legend.margin = margin(0.01, 1, 0.01, 1, "cm"),
         legend.key.height = unit(0.75, "line"),
         legend.spacing = unit(0.05, "cm"),
         #legend.key.width = unit(1, "cm"),
@@ -453,85 +393,36 @@ MSY_weighted_plot <- ggplot(data = BdivBmsy_prop_MSY_gathered$`Pacific-NE-67`,
            position = "stack", stat = "identity", size = 0) +
   # scale_color_continuous(name = "B/BMSY > 1.2", high = "green", 
   #                        low = alpha("green", 0.3), labels = c("", "", "", "", "")) +
-  scale_color_continuous(name = "0.8 < B/BMSY < 1.2", high = "yellow",
-                         low = alpha("yellow", 0.3), labels = c("", "", "", "", "")) +
-  #guides(color = guide_colorbar(title.position = "right")) +
+  scale_color_continuous(name = expression(paste("0.8 < B/", B[M][S][Y], " < 1.2")), high = "yellow",
+                         low = alpha("yellow", 0.3), 
+                         limits = c(0,1),
+                         guide = guide_colorbar(frame.colour = "black", 
+                                                ticks.colour = "black",
+                                                title.vjust = 0.5,
+                                                order = 2,
+                                                label = FALSE)) +
   new_scale_color() +
   geom_bar(aes(fill = stock_status, alpha = prop_of_MSY, color = prop_of_MSY),
            position = "stack", stat = "identity", size = 0) +
-  scale_color_continuous(name = "B/BMSY < 0.8", high = "red",
-                         low = alpha("red", 0.3), labels = c("", "", "", "", "")) +
+  scale_color_continuous(name = expression(paste("B/", B[M][S][Y], " < 0.8")), high = "red",
+                         low = alpha("red", 0.3), labels = c("0", "0.25", "0.5", "0.75", "1"),
+                         limits = c(0,1),
+                         guide = guide_colorbar(frame.colour = "black", 
+                                                ticks.colour = "black",
+                                                title.vjust = 0.9,
+                                                order = 3)) +
   scale_alpha_continuous(name = "", range = c(0.3, 1)) +
-  annotate("text", x = 2012, y = 1.3, label = "Coverage") +
-  annotate("text", x = 2012, y = 1.07, label = "0  0.25  0.5  0.75   1", size = 3.5) +
-  coord_cartesian(ylim = c(0, 1), clip = "off") 
+  coord_cartesian(ylim = c(0, 1), clip = "off")
 
 
-##### Putting the 2 plots together into Figure 1 ##############
+##### Putting the 2 plots together into Figure 1 and saving ##############
 
-grid.arrange(
-  plot1,
-  plot2,
-  nrow = 1,
-  top = BdivBmsy_FAO_areas[1]
-)
-
-
-grid_arrange_shared_legend <-
-  function(...,
-           ncol = length(list(...)),
-           nrow = 1,
-           position = c("bottom", "right")) {
-    
-    plots <- list(...)
-    position <- match.arg(position)
-    g <-
-      ggplotGrob(plots[[1]] + theme(legend.position = position))$grobs
-    legend <- g[[which(sapply(g, function(x)
-      x$name) == "guide-box")]]
-    lheight <- sum(legend$height)
-    lwidth <- sum(legend$width)
-    gl <- lapply(plots, function(x)
-      x + theme(legend.position = "none"))
-    gl <- c(gl, ncol = ncol, nrow = nrow)
-    
-    combined <- switch(
-      position,
-      "bottom" = arrangeGrob(
-        do.call(arrangeGrob, gl),
-        legend,
-        ncol = 1,
-        heights = unit.c(unit(1, "npc") - lheight, lheight)
-      ),
-      "right" = arrangeGrob(
-        do.call(arrangeGrob, gl),
-        legend,
-        ncol = 2,
-        widths = unit.c(unit(1, "npc") - lwidth, lwidth)
-      )
-    )
-    
-    grid.newpage()
-    grid.draw(combined)
-    
-    # return gtable invisibly
-    invisible(combined)
-    
-  }
-
-grid_arrange_shared_legend(plot1, plot2)
-
-plot_grid(plot2, plot1, labels=c("A", "B"), nrow = 1)
-
-# this is the best version at the moment (includes overall figure title)
 both_plots <- 
   ggdraw() +
-  #draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.985) +
-  draw_plot(weighted_equal_plot, x = 0, y = 0, width = 0.5, height = 0.83) +
-  draw_plot(MSY_weighted_plot, x = 0.5, y = 0, width = 0.5, height = 0.95) +
+  draw_plot(weighted_equal_plot, x = 0, y = 0, width = 0.5, height = 0.89) +
+  draw_plot(MSY_weighted_plot, x = 0.5, y = 0, width = 0.5, height = 1) +
   draw_plot_label(c("h) Stocks weighted equally", "i) Stocks weighted by MSY"), 
-                  c(0, 0.5), c(0.85, 0.85), size = 10)
-  #draw_label(BdivBmsy_FAO_areas[1], x = 0.5, y = 0.98)
+                  c(0, 0.5), c(0.9, 0.9), size = 10, hjust = -0.2, fontface = "plain")
 
 ggsave(filename = "figure 1 - FAO 67.png", plot = both_plots, dpi = 600, device = "png", 
        width = 15, height = 8)
@@ -576,27 +467,12 @@ for (i in 1:number_FAO_areas) {
 
 
 
-# Creating example plot - 2 line plots, one for RAM data the other for FAO data
-ggplot() +
-  geom_line(data = FAO_landings_list$`Atlantic-EC-34`, 
-            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
-  geom_line(data = RAM_summed_landings_list$`Atlantic-EC-34`,
-            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
-  scale_color_manual(name = "", 
-                    values = c("FAO Database" = "red", "RAM v4.44" = "blue")) +
-  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
-                     labels = seq(1950, 2020, 10)) +
-  scale_y_continuous(limits = c(0, NA)) +
-  theme_classic() +
-  labs(x = "", y = "Summed catch or landings (MMT)") +
-  theme(legend.position = "top")
-
 
 # Testing with options for highlighting stocks with the most leverage on RAM (most
 # leverage defined as max meanC for the moment)
 max_meanCs <- sort(unique(RAM_raw_landings_list$`Pacific-NE-67`$meanC), decreasing = TRUE)[1:3]
 
-# first version with top 3 stocks as separate lines:
+# first version with top 3 stocks as separate geom_areas:
 meanC_1_ind <- which(RAM_raw_landings_list$`Pacific-NE-67`$meanC == max_meanCs[1])[1]
 meanC_2_ind <- which(RAM_raw_landings_list$`Pacific-NE-67`$meanC == max_meanCs[2])[1]
 meanC_3_ind <- which(RAM_raw_landings_list$`Pacific-NE-67`$meanC == max_meanCs[3])[1]
@@ -626,32 +502,6 @@ test_summed_landings[, 4] <- stock_2_data$TCbest[match(test_summed_landings$year
 test_summed_landings[, 5] <- stock_3_data$TCbest[match(test_summed_landings$year, stock_3_data$year)]
 colnames(test_summed_landings) <- c("year", "summed_TCbest", column_3, column_4, column_5)
 
-
-ggplot() +
-  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
-            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = MENATLAN/1000000, color = "MENATLAN")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = HERRNWATLC/1000000, color = "HERRNWATLC")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = HERR4VWX/1000000, color = "HERR4VWX")) +
-  scale_color_manual(name = "", 
-                     values = c("FAO Database" = "red", 
-                                "RAM v4.44" = "blue",
-                                "MENATLAN" = "green",
-                                "HERRNWATLC" = "gold",
-                                "HERR4VWX" = "orange")) +
-  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
-                     labels = seq(1950, 2020, 10)) +
-  scale_y_continuous(limits = c(0, NA)) +
-  theme_classic() +
-  labs(x = "", y = "Summed catch or landings (MMT)") +
-  theme(legend.position = "top")
-
-# Trying the above plot with shading for the top 3 RAM stocks rather than a line
 
 figure_2_plot <- ggplot() +
   geom_line(data = FAO_landings_list$`Pacific-NE-67`, 
@@ -688,50 +538,9 @@ ggsave(filename = "figure 2 - FAO 67.png", plot = figure_2_plot, dpi = 600, devi
        width = 7, height = 7)
 
 # Version of png with specific size (75 mm X 75 mm):
-ggsave(filename = "figure 2 v2 - FAO 67.png", plot = figure_2_plot, dpi = 600, device = "png", 
+ggsave(filename = "figure 2 v2 - FAO 67.png", plot = figure_2_plot, dpi = 1200, device = "png", 
        width = 75, height = 75, units = "mm", scale = 2)
+# didn't insert correctly into Word - figure out why that is
 
-# Second version with top 3 stocks summed into a single line:
-
-test_summed_landings$summed_top_3_TCbest <- rowSums(test_summed_landings[, 3:5], na.rm = T)
-test_summed_landings$summed_top_3_TCbest[test_summed_landings$summed_top_3_TCbest == 0] <- NA
-
-ggplot() +
-  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
-            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = summed_top_3_TCbest/1000000, color = "RAM - top 3 stocks summed")) +
-  scale_color_manual(name = "", 
-                     values = c("FAO Database" = "red", 
-                                "RAM v4.44" = "blue",
-                                "RAM - top 3 stocks summed" = "green")) +
-  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
-                     labels = seq(1950, 2020, 10)) +
-  scale_y_continuous(limits = c(0, NA)) +
-  theme_classic() +
-  labs(x = "", y = "Summed catch or landings (MMT)") +
-  theme(legend.position = "top")
-
-# Trying the above plot with shading for the top 3 RAM stocks rather than a line
-ggplot() +
-  geom_line(data = FAO_landings_list$`Atlantic-NW-21`, 
-            aes(x = Year, y = Landings/1000000, color = "FAO Database")) +
-  geom_line(data = test_summed_landings,
-            aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44")) +
-  geom_area(data = test_summed_landings,
-            aes(x = year, y = summed_top_3_TCbest/1000000, fill = "RAM - top 3 stocks summed")) +
-  scale_color_manual(name = "", 
-                     values = c("FAO Database" = "red", 
-                                "RAM v4.44" = "blue")) +
-  scale_fill_manual(name = "",
-                    values = c("RAM - top 3 stocks summed" = "lightblue")) +
-  scale_x_continuous(limits = c(1949, 2020), breaks = seq(1950, 2020, 10), 
-                     labels = seq(1950, 2020, 10)) +
-  scale_y_continuous(limits = c(0, NA)) +
-  theme_classic() +
-  labs(x = "", y = "Summed catch or landings (MMT)") +
-  theme(legend.position = "top")
 
 
