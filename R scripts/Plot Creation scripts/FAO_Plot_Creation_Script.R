@@ -353,7 +353,8 @@ figure_1_function <- function(stock_gathered_data,
     guides(fill = F) +
     theme_light() +
     theme(axis.title = element_text(size = 10),
-          axis.text = element_text(size = 10)) +
+          axis.text = element_text(size = 10),
+          plot.margin = margin(t = 0, r = 10, b = 11, l = 5, unit = "pt")) +
     labs(y = expression(paste("Proportion of stocks in B/", B[M][S][Y], " category", sep = "")), 
          x = "", title = "") 
   
@@ -382,7 +383,7 @@ figure_1_function <- function(stock_gathered_data,
     scale_x_continuous(limits = c(1949, 2018), breaks = seq(1950, 2010, 20), 
                        labels = seq(1950, 2010, 20), expand = c(0, 0)) +
     labs(x = "", 
-         y = expression(paste("Proportion of summed MSY in B/", B[M][S][Y], " category", sep = ""))) +
+         y = expression(paste("Proportion of \nsummed MSY in B/", B[M][S][Y], " category", sep = ""))) +
     theme(legend.position = "top", 
           legend.box = "vertical",
           legend.box.just = "right",
@@ -392,8 +393,9 @@ figure_1_function <- function(stock_gathered_data,
           legend.key.width = unit(0.5, "cm"),
           legend.spacing = unit(0.05, "cm"),
           legend.title = element_text(size = 10),
-          legend.key = element_rect(colour = "black", size = 4)) +
-    theme(axis.title = element_text(size = 10),
+          legend.key = element_rect(colour = "black", size = 4),
+          plot.margin = margin(t = 0, r = 0, b = 11, l = 10, unit = "pt"),
+          axis.title = element_text(size = 10, vjust = 1),
           axis.text = element_text(size = 10),
           legend.text = element_text(size = 10)) +
     new_scale_color() +
@@ -423,16 +425,21 @@ figure_1_function <- function(stock_gathered_data,
   # Add plots together into 1 figure
   both_plots <- 
     ggdraw() +
-    draw_plot(weighted_equal_plot, x = 0, y = 0, width = 0.5, height = 0.78) +
-    draw_plot(MSY_weighted_plot, x = 0.5, y = 0, width = 0.5, height = 1) +
-    draw_plot_label(c("h", "i"), x = c(0.07, 0.57), y = c(1, 1), size = 10, 
+    draw_plot(weighted_equal_plot, x = 0, y = 0, width = 0.48, height = 0.72) +
+    draw_plot(MSY_weighted_plot, x = 0.5, y = 0, width = 0.48, height = 1) +
+    draw_plot_label(c("h", "i"), x = c(0.01, 0.52), y = c(1, 1), size = 10, 
                     hjust = -0.1, fontface = "bold")
   
-  # Save figure
+  # Save figure as png
   ggsave(filename = paste(FAO_area, "_figure_1.png", sep = ""), path = here("Figures/Figure 1"),
-         plot = both_plots, dpi = 600, device = "png", width = 14, height = 7.5, units = "in", 
-         scale = 0.5)
+         plot = both_plots, dpi = 600, device = "png", 
+         width = 159, height = 75, units = "mm")
 }
+
+# Test:
+figure_1_function(stock_gathered_data = BdivBmsy_prop_stock_gathered[[1]], 
+                  MSY_gathered_data = BdivBmsy_prop_MSY_gathered[[1]], 
+                  FAO_area = BdivBmsy_FAO_areas[1])
 
 for (i in 1:number_BdivBmsy_FAO_areas) {
   figure_1_function(stock_gathered_data = BdivBmsy_prop_stock_gathered[[i]], 
@@ -482,9 +489,7 @@ for (i in 1:length(landings_FAO_areas)) {
 }
 
 
-
-
-# Extract 
+# Extract meanC values to find the 3 stocks with the highest meanC in each FAO area
 all_meanCs <- vector("list", length = number_FAO_areas)
 names(all_meanCs) <- landings_FAO_areas
 
@@ -498,111 +503,124 @@ for (j in 1:length(landings_FAO_areas)) {
     all_meanCs[[j]][i, 2] <- x$meanC[x$stockid == stocks[i]][1]
     all_meanCs[[j]][i, 3] <- x$stocklong[x$stockid == stocks[i]][1]
     all_meanCs[[j]] <- all_meanCs[[j]][order(all_meanCs[[j]]$meanC, decreasing = TRUE), ]
-    all_meanCs[[j]] <- all_meanCs[[j]][1:3, ]
-    all_meanCs[[j]]$stocklong <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', all_meanCs[[j]]$stocklong))
+    #all_meanCs[[j]] <- all_meanCs[[j]][1:3, ]
   }
 }
 
-# Check how many regions have less than 2 stocks:
-small_stocks_list <- vector()
-
-for (i in 1:length(landings_FAO_areas)) {
-  small_stocks_list[i] <- length(which(!is.na(all_meanCs[[i]]$meanC)))
-}
-small_stock_ind <- which(small_stocks_list < 3)
 
 for (j in 1:length(landings_FAO_areas)) {
     stock_1_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[1], c(1:3, 5)]
     stock_2_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[2], c(1:3, 5)]
-    stock_3_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[3], c(1:3, 5)]
-    column_3 <- paste(stock_1_data$stockid[1],"_TCbest", sep = "")
-    column_4 <- paste(stock_2_data$stockid[1], "_TCbest", sep = "")
-    column_5 <- paste(stock_3_data$stockid[1], "_TCbest", sep = "")
+    #stock_3_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[3], c(1:3, 5)]
+    
+    column_3 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_1_data$stocklong[1]))
+    column_4 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_2_data$stocklong[1]))
+    # column_5 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_3_data$stocklong[1]))
+    # column_3 <- stock_1_data$stockid[1]
+    # column_4 <- stock_2_data$stockid[1]
+    # column_5 <- stock_3_data$stockid[1]
+    
     RAM_summed_landings_list[[j]][, 3] <- stock_1_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_1_data$year)]
     RAM_summed_landings_list[[j]][, 4] <- stock_2_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_2_data$year)]
-    RAM_summed_landings_list[[j]][, 5] <- stock_3_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_3_data$year)]
+    #RAM_summed_landings_list[[j]][, 5] <- stock_3_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_3_data$year)]
     colnames(RAM_summed_landings_list[[j]]) <- c("year", 
                                                  "summed_TCbest", 
                                                  column_3, 
-                                                 column_4, 
-                                                 column_5)
+                                                 column_4) 
+                                                 #column_5)
+    # Make dataframe long format in order to more easily create ggplot
+    RAM_summed_landings_list[[j]] <- gather(RAM_summed_landings_list[[j]], 
+                                            key = "Stocks", value = "stock_TCbest", 3:4)
+    # Set factor levels to order stocks by meanC (for ggplot legend):
+    RAM_summed_landings_list[[j]]$Stocks <- factor(RAM_summed_landings_list[[j]]$Stocks,
+                                                   levels = c(column_3,
+                                                              column_4))
+                                                              #column_5))
 }
 
+# For the FAO areas that have data in both FAO and RAM landings
+landings_FAO_areas_both <- intersect(names(RAM_summed_landings_list), 
+                                     names(FAO_landings_list))
 
-sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', all_meanCs[[1]]$stocklong))
-
-
-
+# Function to create plot of FAO vs RAM catch/landings, with the 2 stocks with highest
+# meanC values colored in:
 figure_2_function <- function(FAO_data, 
                               RAM_data, 
-                              FAO_area,
-                              meanC_stocks) {
-  stock_1_name <- meanC_stocks$stocklong[1]
-  stock_2_name <- meanC_stocks$stocklong[2]
-  stock_3_name <- meanC_stocks$stocklong[3]
-  # print(stock_1_name)
-  # print(stock_2_name)
-  # print(stock_3_name)
-  stockid_1 <- as.symbol(colnames(RAM_data)[3])
-  stockid_2 <- as.symbol(colnames(RAM_data)[4])
-  stockid_3 <- as.symbol(colnames(RAM_data)[5])
-  # stockid_1 <- colnames(RAM_data)[3]
-  # stockid_2 <- colnames(RAM_data)[4]
-  # stockid_3 <- colnames(RAM_data)[5]
-  # RAM_data$stock_1_column <- rep(stock_1_name, nrow(RAM_data))
-  # print(RAM_data$stock_1_column)
-  # 
+                              FAO_area) {
+  myColors <- c("dodgerblue", 
+                "deepskyblue") 
+                # "slateblue1")
+  names(myColors) <- levels(RAM_data$Stocks)
+  # print(myColors)
+  # png(filename = paste(FAO_area, "-figure_2.png", sep = ""),
+  #     width = 75, height = 75, units = "mm", res = 300)
+  
   figure_2_plot <- ggplot() +
+    geom_area(data = RAM_data,
+              aes(x = year, y = stock_TCbest/1000000, 
+                  fill = Stocks)) +
     geom_line(data = FAO_data, 
               aes(x = Year, y = Landings/1000000, color = "FAO Database"), size = 1.5) +
     geom_line(data = RAM_data,
-              aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.44"), size = 1.5) +
-    geom_area(data = RAM_data,
-              aes(x = year, y = (!!stockid_1 + 
-                                   !!stockid_2 + 
-                                   !!stockid_3)/1000000, 
-                  fill = stock_1_name)) +
-    geom_area(data = RAM_data,
-              aes(x = year, y = (!!stockid_1 +
-                                   !!stockid_2)/1000000,
-                  fill = quo(stock_2_name))) +
-    geom_area(data = RAM_data,
-              aes(x = year, y = !!stockid_1/1000000,
-                  fill = quo(stock_3_name))) +
+              aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.46"), size = 1.5) +
     scale_color_manual(name = "", 
                        values = c("FAO Database" = "red", 
-                                  "RAM v4.44" = "blue")) +
-    scale_fill_manual(name = "RAM Stocks with \nHighest Mean Catch",
-                      values = c(stock_1_name = "dodgerblue",
-                                 stock_2_name = "deepskyblue",
-                                 stock_3_name = "slategray1")) +
+                                  "RAM v4.46" = "blue"),
+                       guide = element_text(size = 10)) +
+    scale_fill_manual(name = "RAM stocks with highest mean catch:",
+                      values = myColors,
+                      guide = element_text(size = 8)) +
     scale_x_continuous(limits = c(1949, 2018), breaks = seq(1950, 2010, 20), 
                        labels = seq(1950, 2010, 20)) +
     scale_y_continuous(limits = c(0, NA)) +
-    theme_classic(base_size = 10) +
-    labs(x = "", y = "Summed catch or landings (MMT)", title = "f") +
+    theme_classic() +
+    labs(x = "", y = "Summed catch or landings (MMT)") +
     theme(legend.position = "top",
           legend.box = "vertical",
           legend.box.just = "right",
+          legend.margin = margin(0, 0, 0, 0, "cm"),
           legend.justification = c(1, 0),
-          axis.title = element_text(size = 10),
-          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10, vjust = 1),
+          #axis.text = element_text(size = 10),
           legend.text = element_text(size = 10),
-          legend.title = element_text(size = 10)) +
-    guides(color = guide_legend(order = 1),
-           fill = guide_legend(order = 2))
-  return(figure_2_plot)
-  # ggsave(filename = paste(FAO_area, "-figure_2.png", sep = ""), plot = figure_2_plot, 
-  #        dpi = 600, device = "png", width = 7, height = 7, path = here("Figures/Figure 2"))
+          # legend.box.background = element_rect(fill = "black"),
+          # legend.title = element_text(size = 10),
+          plot.margin = margin(t = 0, r = 10, b = 0, l = 0, unit = "pt")) +
+    guides(color = guide_legend(order = 1,
+                                keyheight = unit(0.5,"cm")),
+           fill = guide_legend(order = 2, 
+                               title.position = "top", 
+                               title.hjust = 0.5,
+                               label.theme = element_text(size = 7),
+                               keyheight = unit(0.25, "cm")))
   
+  figure_2 <- ggdraw() +
+    draw_plot(figure_2_plot, x = 0, y = 0, width = 1, height = 1) +
+    draw_plot_label(c("f"), x = c(0.01), y = c(1), size = 10, 
+                    hjust = -0.1, fontface = "bold")
+  
+  #print(figure_2_plot)
+  #return(figure_2_plot)
+  ggsave(filename = paste(FAO_area, "-figure_2.png", sep = ""), plot = figure_2,
+         dpi = 300, device = "png", width = 75, height = 75, units = "mm",
+         path = here("Figures/Figure 2"))
+  
+  # dev.off()
 }
 
 
-figure_2_function(FAO_data = FAO_landings_list[[2]],
-                  RAM_data = RAM_summed_landings_list[[1]],
-                  FAO_area = landings_FAO_areas[1],
-                  meanC_stocks = all_meanCs[[1]])
+# Test:
+figure_2_function(FAO_data = FAO_landings_list[[landings_FAO_areas_both[1]]],
+                  RAM_data = RAM_summed_landings_list[[landings_FAO_areas_both[1]]],
+                  FAO_area = landings_FAO_areas_both[1])
 
+
+
+for (i in 1:length(landings_FAO_areas)) {
+  figure_2_function(FAO_data = FAO_landings_list[[landings_FAO_areas_both[i]]],
+                    RAM_data = RAM_summed_landings_list[[landings_FAO_areas_both[i]]],
+                    FAO_area = landings_FAO_areas_both[i])
+}
 
 
 
