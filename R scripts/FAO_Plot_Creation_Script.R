@@ -513,8 +513,8 @@ for (j in 1:length(landings_FAO_areas)) {
     stock_2_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[2], c(1:3, 5)]
     #stock_3_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[3], c(1:3, 5)]
     
-    column_3 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_1_data$stocklong[1]))
-    column_4 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_2_data$stocklong[1]))
+    column_3 <- sub("\\s+$", "", gsub('(.{1,20})(\\s|$)', '\\1\n', stock_1_data$stocklong[1]))
+    column_4 <- sub("\\s+$", "", gsub('(.{1,20})(\\s|$)', '\\1\n', stock_2_data$stocklong[1]))
     # column_5 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_3_data$stocklong[1]))
     # column_3 <- stock_1_data$stockid[1]
     # column_4 <- stock_2_data$stockid[1]
@@ -560,9 +560,9 @@ figure_2_function <- function(FAO_data,
               aes(x = year, y = stock_TCbest/1000000, 
                   fill = Stocks)) +
     geom_line(data = FAO_data, 
-              aes(x = Year, y = Landings/1000000, color = "FAO Database"), size = 1.5) +
+              aes(x = Year, y = Landings/1000000, color = "FAO Database"), size = 1) +
     geom_line(data = RAM_data,
-              aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.46"), size = 1.5) +
+              aes(x = year, y = summed_TCbest/1000000, color = "RAM v4.46"), size = 1) +
     scale_color_manual(name = "", 
                        values = c("FAO Database" = "red", 
                                   "RAM v4.46" = "blue"),
@@ -581,7 +581,7 @@ figure_2_function <- function(FAO_data,
           legend.margin = margin(0, 0, 0, 0, "cm"),
           legend.justification = c(1, 0),
           axis.title = element_text(size = 10, vjust = 1),
-          #axis.text = element_text(size = 10),
+          axis.text = element_text(size = 10),
           legend.text = element_text(size = 10),
           # legend.box.background = element_rect(fill = "black"),
           # legend.title = element_text(size = 10),
