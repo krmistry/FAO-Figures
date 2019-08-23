@@ -84,6 +84,7 @@ timeseries_values_views$region <- timeseries_values_views$region %>%
 # Capitalize taxGroup values (makes things easier in terms of matching the legend)
 timeseries_values_views$taxGroup <- str_to_title(timeseries_values_views$taxGroup)
 
+
 # Creating FAO areas just for tunas in the Pacific, Indian and Atlantic Oceans:
 timeseries_values_views$primary_FAOname <- as.character(timeseries_values_views$primary_FAOname)
 
@@ -95,6 +96,7 @@ timeseries_values_views$primary_FAOname[timeseries_values_views$region == "India
                                           timeseries_values_views$taxGroup == "Tuna-Billfish"] <- "Indian Ocean tunas"
 
 timeseries_values_views$primary_FAOname <- as.factor(timeseries_values_views$primary_FAOname)
+
 
 
 # Extracting rows that have values (not NA) in the BdivBmsy column of the 
@@ -129,15 +131,19 @@ RAM_raw_landings <- subset(timeseries_values_views,
                        is.na(timeseries_values_views$TCbest) == FALSE)
 
 
+RAM_raw_landings$primary_FAOname <- as.character(RAM_raw_landings$primary_FAOname)
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Pacific Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Pacific Ocean tunas"
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Atlantic Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Atlantic Ocean tunas"
+RAM_raw_landings$primary_FAOname[RAM_raw_landings$region == "Indian Ocean" & 
+                                   RAM_raw_landings$taxGroup == "Tuna-Billfish"] <- "Indian Ocean tunas"
+RAM_raw_landings$primary_FAOname <- as.factor(RAM_raw_landings$primary_FAOname)
+
+
 ##################################################################################
 ######### Parameters for All Data Transformations & Segmentations ################
 #################################################################################
-
-# if there are NAs in either region or taxGroup, stop operation
-# if (any(is.na(timeseries_values_views$region) == TRUE) | 
-#     any(is.na(timeseries_values_views$primary_FAOname) == TRUE)) { 
-#   stop(paste("timeseries_values_views has NAs in region and/or primary_FAOname column"))
-# }
 
 # FAO area lists:
 all_FAO_areas <- sort(as.character(unique(timeseries_values_views$primary_FAOname)))
@@ -151,44 +157,15 @@ filtered_FAO_areas <- landings_FAO_areas[!landings_FAO_areas %in% c("Pacific-WC-
 number_FAO_areas <- length(all_FAO_areas)
 number_BdivBmsy_FAO_areas <- length(BdivBmsy_FAO_areas)
 number_landings_FAO_areas <- length(landings_FAO_areas)
+number_filtered_FAO_areas <- length(filtered_FAO_areas)
 
-
-# Region lists:
-# regions <- unique(timeseries_values_views$region)
-# salmon_reg <- c("Canada West Coast (Pacific Salmon)", 
-#                 "US Alaska (Pacific Salmon)", 
-#                 "Northwest Pacific (Pacific Salmon)", 
-#                 "US West Coast (Pacific Salmon)") 
-# # use regions to match with timeseries_values_views$region, All_TBbest.df$region 
-# # and surplus$region
-# regions <- regions[regions != salmon_reg] 
-# regions_plot_titles <- regions
-# number_regions <- length(regions)
-# # use region_labels for naming region dataframes inside lists
-# region_labels <- gsub(" ", "_", regions)
-# 
-# # Taxonomy group lists for timeseries_values_views data:
-# taxGroup_list <- unique(timeseries_values_views$taxGroup)
-# number_taxGroups <- length(taxGroup_list)
-# taxGroup_plot_titles <- taxGroup_list
-# taxGroup_labels <- gsub(" |-", "_", taxGroup_list)
-# # Taxonomy group lists for All_TBbest.df data:
-# TB_taxGroup_list <- as.character(taxGroup_list[taxGroup_list %in% unique(All_TBbest.df$taxGroup)])
-# number_TB_taxGroups <- length(TB_taxGroup_list)
-# TB_taxGroup_plot_titles <- TB_taxGroup_list
-# TB_taxGroup_labels <- gsub(" |-", "_", TB_taxGroup_list)
-# ##### use TB_taxGroup_list for matching with All_TBbest.df$taxGroup ###########
 
 # year range:
 year_min <- 1950 # this is defined in Region_or_taxGroup_Plots_Code-KM.R
 year_max <- max(timeseries_values_views$year) - 1 # there were no TBbest numbers for 2017, the max year
 year_range <- year_max - year_min + 1
 years <- c(year_min:year_max)
-# stock_count_years <- seq(year_min, year_max, by = 5)
-# 
-# # stocks:
-# stock_ids <- unique(timeseries_values_views$stockid)
-# number_stocks <- length(stock_ids)
+
 
 # Splitting each data frame into lists by alphabetized FAO area, after first resetting
 # FAO area factor levels to reflect which areas actually have data in each data frame:
@@ -198,9 +175,12 @@ BdivBmsy_with_MSY_data$primary_FAOname <- factor(BdivBmsy_with_MSY_data$primary_
                                                  levels = unique(BdivBmsy_with_MSY_data$primary_FAOname))
 RAM_raw_landings$primary_FAOname <- factor(RAM_raw_landings$primary_FAOname,
                                                  levels = unique(RAM_raw_landings$primary_FAOname))
-# timeseries_values_views_FAO_list <- split(timeseries_values_views, 
-#                                           timeseries_values_views$primary_FAOname)
 
+
+# Separate out timeseries_values_views, All_TBbest.df, All_BdivBmsy.df and BdivBmsy_with_MSY 
+# data into lists of dataframes separated by FAO areas, and sorting dataframes alphabetically
+timeseries_values_views_FAO_list <- split(timeseries_values_views, 
+                                          timeseries_values_views$primary_FAOname)
 
 All_BdivBmsy.df_FAO_list <- split(All_BdivBmsy.df, 
                                   All_BdivBmsy.df$primary_FAOname)
@@ -211,7 +191,10 @@ BdivBmsy_with_MSY_data_FAO_list <- split(BdivBmsy_with_MSY_data,
 BdivBmsy_with_MSY_data_FAO_list <- BdivBmsy_with_MSY_data_FAO_list[sort(names(BdivBmsy_with_MSY_data_FAO_list))]
 
 RAM_raw_landings_list <- split(RAM_raw_landings, RAM_raw_landings$primary_FAOname)
+
 RAM_raw_landings_list <- RAM_raw_landings_list[sort(names(RAM_raw_landings_list))]
+
+RAM_summed_landings_list <- RAM_raw_landings_list[sort(names(RAM_raw_landings_list))]
 
 ################################################################################
 ############  BdivBmsy & Number of Stocks across Timeseries ####################
@@ -288,6 +271,7 @@ for (j in 1:number_BdivBmsy_FAO_areas) {
     BdivBmsy_prop_MSY_list[[j]]$prop_of_MSY[i] <- BdivBmsy_prop_MSY_list[[j]]$summed_MSY[i]/max(BdivBmsy_prop_MSY_list[[j]]$summed_MSY)
   }
 }
+
 
 
 # Gather prop_stocks columns into a single column for both lists of dataframes
@@ -483,7 +467,12 @@ for (j in 1:number_landings_FAO_areas) {
 RAM_summed_landings_list <- vector("list", length = number_landings_FAO_areas)
 names(RAM_summed_landings_list) <- landings_FAO_areas
 
-for (i in 1:number_landings_FAO_areas) {
+
+# Summing across years within each FAO region for the RAM landings data:
+RAM_summed_landings_list <- vector("list", length = number_FAO_areas)
+names(RAM_summed_landings_list) <- landings_FAO_areas
+
+for (i in 1:length(landings_FAO_areas)) {
   RAM_summed_landings_list[[i]] <- as.data.frame(matrix(NA, nrow = year_range,
                                                       ncol = 2))
   colnames(RAM_summed_landings_list[[i]]) <- c("year",
@@ -500,22 +489,35 @@ for (i in 1:number_landings_FAO_areas) {
 
 
 
+# Extract meanC values to find the 3 stocks with the highest meanC in each FAO area
+all_meanCs <- vector("list", length = number_FAO_areas)
+names(all_meanCs) <- landings_FAO_areas
+
+for (j in 1:length(landings_FAO_areas)) {
+  x <- RAM_raw_landings_list[[j]]
+  stocks <- unique(x$stockid)
+  all_meanCs[[j]] <- as.data.frame(matrix(NA, nrow = length(stocks), ncol = 3))
+  colnames(all_meanCs[[j]]) <- c("stockid", "meanC", "stocklong")
+  for (i in 1:length(stocks)) {
+    all_meanCs[[j]][i, 1] <- stocks[i]
+    all_meanCs[[j]][i, 2] <- x$meanC[x$stockid == stocks[i]][1]
+    all_meanCs[[j]][i, 3] <- x$stocklong[x$stockid == stocks[i]][1]
+    all_meanCs[[j]] <- all_meanCs[[j]][order(all_meanCs[[j]]$meanC, decreasing = TRUE), ]
+    #all_meanCs[[j]] <- all_meanCs[[j]][1:3, ]
+  }
+}
+
 
 for (j in 1:length(landings_FAO_areas)) {
     stock_1_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[1], c(1:3, 5)]
     stock_2_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[2], c(1:3, 5)]
-    #stock_3_data <- RAM_raw_landings_list[[j]][RAM_raw_landings_list[[j]]$stockid == all_meanCs[[j]]$stockid[3], c(1:3, 5)]
     
     column_3 <- sub("\\s+$", "", gsub('(.{1,20})(\\s|$)', '\\1\n', stock_1_data$stocklong[1]))
     column_4 <- sub("\\s+$", "", gsub('(.{1,20})(\\s|$)', '\\1\n', stock_2_data$stocklong[1]))
-    # column_5 <- sub("\\s+$", "", gsub('(.{1,16})(\\s|$)', '\\1\n', stock_3_data$stocklong[1]))
-    # column_3 <- stock_1_data$stockid[1]
-    # column_4 <- stock_2_data$stockid[1]
-    # column_5 <- stock_3_data$stockid[1]
     
     RAM_summed_landings_list[[j]][, 3] <- stock_1_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_1_data$year)]
     RAM_summed_landings_list[[j]][, 4] <- stock_2_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_2_data$year)]
-    #RAM_summed_landings_list[[j]][, 5] <- stock_3_data$TCbest[match(RAM_summed_landings_list[[j]]$year, stock_3_data$year)]
+   
     colnames(RAM_summed_landings_list[[j]]) <- c("year", 
                                                  "summed_TCbest", 
                                                  column_3, 
@@ -771,28 +773,6 @@ weighted_equal_plot <- ggplot(data = pooled_BdivBmsy_prop_stock_gathered,
                                                 order = 3)) +
   scale_alpha_continuous(name = "", range = c(0.1, 1)) +
   coord_cartesian(ylim = c(0, 1), clip = "off")
-  
-  # ggplot(data = pooled_BdivBmsy_prop_stock_gathered,
-  #                             aes(x = year, y = prop_of_statuses)) +
-  # geom_bar(aes(fill = stock_status, alpha = prop_of_stocks),
-  #          position = "stack", stat = "identity") +
-  # scale_fill_manual(name = "Stock status",
-  #                   values = gather_colors,
-  #                   labels = c("B/BMSY > 1.2",
-  #                              "0.8 < B/BMSY < 1.2",
-  #                              "B/BMSY < 0.8")) +
-  # scale_x_continuous(limits = c(1949, 2018), breaks = seq(1950, 2010, 20), 
-  #                    labels = seq(1950, 2010, 20), expand = c(0, 0)) +
-  # scale_alpha_continuous(name = "", range = c(0.1, 1)) +
-  # guides(alpha = F) +
-  # guides(fill = F) +
-  # theme_light() +
-  # theme(axis.title = element_text(size = 10),
-  #       axis.text = element_text(size = 10),
-  #       plot.margin = margin(t = 0, r = 10, b = 11, l = 5, unit = "pt"),
-  #       plot.title = element_text(face = "bold")) +
-  # labs(y = expression(paste("Proportion of stocks in B/", B[M][S][Y], " category", sep = "")), 
-  #      x = "", title = "h") 
 
 # Save figure as png
 ggsave(filename = "All_Data_figure_h.png", path = here("Figures/Figure 1"),
@@ -823,72 +803,6 @@ MSY_weighted_plot <- ggplot(data = pooled_BdivBmsy_prop_MSY_gathered,
   labs(y = expression(paste("Proportion of \nsummed MSY in B/", B[M][S][Y], " category", sep = "")),
        x = "", title = "i")
 
-  # ggplot(data = pooled_BdivBmsy_prop_MSY_gathered,
-  #                           aes(x = year, y = prop_of_statuses)) +
-  # geom_bar(aes(color = prop_of_MSY), fill = "white",
-  #          position = "stack", stat = "identity", size = 0) +
-  # scale_fill_manual(name = "Stock status",
-  #                   values = gather_colors,
-  #                   labels = c("B/BMSY > 1.2",
-  #                              "0.8 < B/BMSY < 1.2",
-  #                              "B/BMSY < 0.8")) +
-  # scale_color_continuous(name = expression(paste("B/", B[M][S][Y], " > 1.2", sep = "")), high = "green",
-  #                        low = alpha("green", 0.1), labels = c("", "", "Coverage", "", ""),
-  #                        limits = c(0,1),
-  #                        guide = guide_colorbar(frame.colour = "black", 
-  #                                               ticks.colour = "black",
-  #                                               title.vjust = 0.1,
-  #                                               order = 1,
-  #                                               label.position = "top",
-  #                                               label.theme = element_text(size = 10))) +
-  # theme_light() +
-  # guides(alpha = FALSE) +
-  # guides(fill = FALSE) +
-  # scale_x_continuous(limits = c(1949, 2018), breaks = seq(1950, 2010, 20), 
-  #                    labels = seq(1950, 2010, 20), expand = c(0, 0)) +
-  # labs(x = "", 
-  #      y = expression(paste("Proportion of \nsummed MSY in B/", B[M][S][Y], " category", sep = "")),
-  #      title = "i") +
-  # theme(legend.position = "top", 
-  #       legend.box = "vertical",
-  #       legend.box.just = "right",
-  #       legend.justification = c(1, 0),
-  #       legend.margin = margin(0.01, 0.01, 0.01, 0.01, "cm"),
-  #       legend.key.height = unit(0.75, "line"),
-  #       legend.key.width = unit(0.5, "cm"),
-  #       legend.spacing = unit(0.05, "cm"),
-  #       legend.title = element_text(size = 10),
-  #       legend.key = element_rect(colour = "black", size = 4),
-  #       plot.margin = margin(t = 0, r = 0, b = 11, l = 10, unit = "pt"),
-  #       axis.title = element_text(size = 10, vjust = 1),
-  #       axis.text = element_text(size = 10),
-  #       legend.text = element_text(size = 10),
-  #       plot.title = element_text(face = "bold")) +
-  # new_scale_color() +
-  # geom_bar(aes(color = prop_of_MSY), fill = "white",
-  #          position = "stack", stat = "identity", size = 0) +
-  # scale_color_continuous(name = expression(paste("0.8 < B/", B[M][S][Y], " < 1.2")), high = "yellow",
-  #                        low = alpha("yellow", 0.1), 
-  #                        limits = c(0, 1),
-  #                        guide = guide_colorbar(frame.colour = "black", 
-  #                                               ticks.colour = "black",
-  #                                               title.vjust = 0.5,
-  #                                               order = 2,
-  #                                               label = FALSE)) +
-  # new_scale_color() +
-  # geom_bar(aes(fill = stock_status, alpha = prop_of_MSY, color = prop_of_MSY),
-  #          position = "stack", stat = "identity", size = 0) +
-  # scale_color_continuous(name = expression(paste("B/", B[M][S][Y], " < 0.8")), high = "red",
-  #                        low = alpha("red", 0.1), labels = c("0", "", "0.5", "", "1"),
-  #                        limits = c(0,1),
-  #                        guide = guide_colorbar(frame.colour = "black", 
-  #                                               ticks.colour = "black",
-  #                                               title.vjust = 0.9,
-  #                                               order = 3)) +
-  # scale_alpha_continuous(name = "", range = c(0.1, 1)) +
-  # coord_cartesian(ylim = c(0, 1), clip = "off")
-
-
 # Save figure as png
 ggsave(filename = "All_Data_figure_i.png", path = here("Figures/Figure 1"),
        plot = MSY_weighted_plot, dpi = 600, device = "png", 
@@ -900,8 +814,6 @@ ggsave(filename = "All_Data_figure_i.png", path = here("Figures/Figure 1"),
 ####### Figure f for pooled data, with different size than the FAO area figure 1
 
 # Extract meanC values in RAM_raw_landings_list 
-# all_meanCs <- vector("list", length = number_landings_FAO_areas)
-# names(all_meanCs) <- landings_FAO_areas
 all_meanCs_global <- as.data.frame(matrix(NA, 
                                           nrow = length(unique(RAM_raw_landings$stockid)), 
                                           ncol = 3))
@@ -910,25 +822,16 @@ colnames(all_meanCs_global) <- c("stockid",
                                  "stocklong")
 all_RAM_stockids <- unique(RAM_raw_landings$stockid)
 
-# for (j in 1:number_landings_FAO_areas) {
-#   x <- RAM_raw_landings_list[landings_FAO_areas[j]]
-#   x <- x[[1]]
-#   stocks <- unique(x$stockid)
-  # all_meanCs[[j]] <- as.data.frame(matrix(NA, nrow = length(stocks), ncol = 3))
-  # colnames(all_meanCs[[j]]) <- c("stockid", "meanC", "stocklong")
-  for (i in 1:length(all_RAM_stockids)) {
-    all_meanCs_global[i, 1] <- all_RAM_stockids[i]
-    all_meanCs_global[i, 2] <- RAM_raw_landings$meanC[RAM_raw_landings$stockid == all_RAM_stockids[i]][1]
-    all_meanCs_global[i, 3] <- RAM_raw_landings$stocklong[RAM_raw_landings$stockid == all_RAM_stockids[i]][1]
-    all_meanCs_global <- all_meanCs_global[order(all_meanCs_global$meanC, 
+for (i in 1:length(all_RAM_stockids)) {
+  all_meanCs_global[i, 1] <- all_RAM_stockids[i]
+  all_meanCs_global[i, 2] <- RAM_raw_landings$meanC[RAM_raw_landings$stockid == all_RAM_stockids[i]][1]
+  all_meanCs_global[i, 3] <- RAM_raw_landings$stocklong[RAM_raw_landings$stockid == all_RAM_stockids[i]][1]
+  all_meanCs_global <- all_meanCs_global[order(all_meanCs_global$meanC, 
                                                decreasing = TRUE), ]
-    #all_meanCs[[j]] <- all_meanCs[[j]][1:3, ]
-  }
-#}
+}
+
 
 # Summing across years within each FAO region for the RAM landings data:
-# RAM_summed_landings_list <- vector("list", length = number_landings_FAO_areas)
-# names(RAM_summed_landings_list) <- landings_FAO_areas
 RAM_summed_landings <- as.data.frame(matrix(NA, nrow = year_range,
                                             ncol = 2))
 colnames(RAM_summed_landings) <- c("year",
@@ -1047,4 +950,5 @@ figure_f <- ggdraw() +
 ggsave(filename = "All_Data_figure_f.png", plot = figure_f,
        dpi = 300, device = "png", width = 160, height = 100, units = "mm",
        path = here("Figures/Figure 2"))
+
 
